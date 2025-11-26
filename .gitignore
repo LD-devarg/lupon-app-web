@@ -1,0 +1,36 @@
+# --- PYTHON / DJANGO ---
+**/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+
+# Django static build
+staticfiles/
+static_root/
+
+# environment / secrets
+.env
+*.env
+
+# --- FRONTEND (REACT/VITE/TAILWIND) ---
+node_modules/
+dist/
+build/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- IDEs ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- MISC ---
+*.bak
+*.tmp
