@@ -29,7 +29,9 @@ def validar_cambio_estado_venta(venta, nuevo_estado):
     if nuevo_estado not in FLUJO_ESTADO_ENTREGA:
         raise ValidationError(f"El estado '{nuevo_estado}' no es válido.")
     
-    estado_actual = venta.estado_entrega
+    
+    estado_actual = venta.estado_entrega.capitalize()
+    nuevo_estado = nuevo_estado.capitalize()
     estados_permitidos = FLUJO_ESTADO_ENTREGA[estado_actual]
     if nuevo_estado not in estados_permitidos:
         permitidos = ', '.join(estados_permitidos)

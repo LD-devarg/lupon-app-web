@@ -197,6 +197,7 @@ class Ventas(models.Model):
         ('pendiente', 'Pendiente'),
         ('cobrado', 'Cobrado'),
         ('parcial', 'Parcial'),
+        ('cancelado', 'Cancelado'),
     ]
 
     pedido_venta = models.ForeignKey(PedidosVentas, on_delete=models.CASCADE, related_name='ventas')

@@ -4,6 +4,9 @@ from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentas
 from rest_framework.exceptions import ValidationError
 from .domain.logica import calcular_subtotal, calcular_total
 from .domain.validaciones_ventas import validar_cambio_estado_venta
+from .domain.validaciones_cobros import validar_cobro
+from .servicios.automatizaciones import saldos_al_crear_venta, saldos_al_crear_cobro, saldos_al_crear_cobro_detalle, actualizar_estado_ventas_al_cobrar
+from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
 
 # ============================================================
@@ -239,6 +242,7 @@ class VentasSerializer(serializers.ModelSerializer):
         venta.saldo_pendiente = venta.total # Inicialmente el saldo pendiente es igual al total
         venta.save(update_fields=['subtotal', 'total', 'saldo_pendiente'])
         
+        saldos_al_crear_venta(venta)
         return venta
 
 class CambiarEstadoVentaSerializer(serializers.Serializer):
@@ -254,10 +258,48 @@ class CambiarEstadoVentaSerializer(serializers.Serializer):
 class NuevaFechaEntregaSerializer(serializers.Serializer):
     nueva_fecha = serializers.DateField(required=True)
 
-# Cobros Serializer
+# Cobros Serializer y nested Cobros Detalle Serializer
+class CobrosDetalleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CobrosDetalle
+        fields = ['venta', 'monto_aplicado']
 
-# Cobros Detalle Serializer
+class CobrosSerializer(serializers.ModelSerializer):
+    detalles = CobrosDetalleSerializer(many=True)
+    
+    class Meta:
+        model = Cobros
+        fields = [
+                  'cliente',
+                  'fecha_cobro',
+                  'medio_pago',
+                  'monto',
+                  'observaciones',
+                  'detalles'
+            ]
+        read_only_fields = ['creado_en', 'actualizado_en']
+        
+    @transaction.atomic
+    def create(self, validated_data):
+        detalles_data = validated_data.pop('detalles', [])
+        
+        # Validar el cobro antes de crearlo
+        validar_cobro(validated_data, detalles_data)
+        
+        cobro = Cobros.objects.create(**validated_data)
+        
+        saldos_al_crear_cobro(cobro)
 
+        for detalle_data in detalles_data:
+            detalle = CobrosDetalle.objects.create(cobro=cobro, **detalle_data)
+            
+            saldos_al_crear_cobro_detalle(detalle)             
+        
+        actualizar_estado_ventas_al_cobrar(cobro)
+        
+        return cobro
+
+        
 # Pedidos de Compras Serializer
 
 # Pedidos de Compras Detalle Serializer

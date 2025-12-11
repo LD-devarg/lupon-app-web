@@ -2,13 +2,12 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle
-from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer
+from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle
+from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer, CobrosSerializer, CobrosDetalleSerializer
 from .domain.logica import calcular_precios_producto, calcular_subtotal
 from .domain.validaciones_ventas import validar_cambio_estado_venta, validar_cambio_estado_pedido_venta
 from .domain.validaciones_usuarios import validar_cambio_estado_usuario, validar_cambio_contrasena, validar_cambio_email
-from core.servicios.automatizaciones import completar_pedido_venta_al_entregar
-
+from core.servicios.automatizaciones import completar_pedido_venta_al_entregar, cancelar_venta
 # ============================================================
 # ViewSets
 # ============================================================
@@ -265,12 +264,16 @@ class VentasViewSet(viewsets.ModelViewSet):
             validar_cambio_estado_venta(venta, nuevo_estado)
         except ValidationError as e:
             return Response({"error": str(e)}, status=400)
+        # Automatizacion para manejar venta cancelada
+        if nuevo_estado == 'Cancelada':
+            cancelar_venta(venta)
+            return Response({"status": "Venta cancelada correctamente."})
         
         venta.estado_entrega = nuevo_estado
         venta.save()
         # automatización: completar pedido de venta si la venta se marca como entregada
         completar_pedido_venta_al_entregar(venta, nuevo_estado)
-        
+
         return Response({"status": "Estado de entrega actualizado correctamente."})
     
     # Reprogramar fecha de entrega
@@ -307,3 +310,11 @@ class VentasDetalleViewSet(viewsets.ModelViewSet):
     
     # No es necesario recalcular subtotal, total y saldo pendiente aquí, ya que se maneja en el serializer de Ventas y no se permite modificar detalles directamente desde este ViewSet.
     pass
+
+class CobrosViewSet(viewsets.ModelViewSet):
+    serializer_class = CobrosSerializer
+    queryset = Cobros.objects.all()
+    
+class CobrosDetalleViewSet(viewsets.ModelViewSet):
+    serializer_class = CobrosDetalleSerializer
+    queryset = CobrosDetalle.objects.all()

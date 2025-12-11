@@ -59,10 +59,18 @@ def calcular_total(subtotal=Decimal('0.00'), costo_entrega=None, extra=None, des
 # Saldo Pendiente es = monto - monto_aplicado
 
 # ============================================================
-# Calculo de Monto Aplicado
+# Calculo de Monto Aplicado Total
 # ============================================================
 
-# Monto Aplicado es = a la suma de los pagos aplicados a un documento
+# Monto Aplicado es = a la suma de los pagos aplicados a un documento, y se hace con la data recibida pre guardar los datos por ende se 
+
+def calcular_monto_aplicado_total(detalles_data):
+    monto_aplicado_total = Decimal('0.00')
+    
+    for d in detalles_data:
+        monto_aplicado_total += d['monto_aplicado']
+    
+    return monto_aplicado_total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 # ============================================================
 # Calculo de Fecha de Vencimiento
