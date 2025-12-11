@@ -6,7 +6,21 @@ from rest_framework.exceptions import ValidationError
 # Validaciones Ventas
 # =============================================================
 
-# Venta no puede ser realizada si Pedido de Venta no esta aceptado y el monto es == 0
+# Venta no puede ser realizada si Pedido de Venta no esta aceptado o el subtotal es == 0
+
+def validar_venta(validated_data):
+    
+    pedido_venta = validated_data.get('pedido_venta')
+
+    if pedido_venta:
+        
+        if pedido_venta.estado.lower() != 'aceptado':
+            raise ValidationError("No se puede realizar una venta si el pedido de venta no está aceptado.")
+
+        if pedido_venta.subtotal == 0:
+            raise ValidationError("No se puede realizar una venta si el pedido de venta tiene subtotal igual a 0.")
+    
+    return True
 
 # =============================================================
 # Validaciones Cambio de Estado de Ventas
@@ -24,18 +38,18 @@ FLUJO_ESTADO_ENTREGA = {
     'Cancelada': []
 }
 
-def validar_cambio_estado_venta(venta, nuevo_estado):
+def validar_cambio_estado_venta(venta, estado_entrega):
    
-    if nuevo_estado not in FLUJO_ESTADO_ENTREGA:
-        raise ValidationError(f"El estado '{nuevo_estado}' no es válido.")
+    if estado_entrega not in FLUJO_ESTADO_ENTREGA:
+        raise ValidationError(f"El estado '{estado_entrega}' no es válido.")
     
     
     estado_actual = venta.estado_entrega.capitalize()
-    nuevo_estado = nuevo_estado.capitalize()
+    estado_entrega = estado_entrega.capitalize()
     estados_permitidos = FLUJO_ESTADO_ENTREGA[estado_actual]
-    if nuevo_estado not in estados_permitidos:
+    if estado_entrega not in estados_permitidos:
         permitidos = ', '.join(estados_permitidos)
-        raise ValidationError(f"No se puede cambiar el estado de '{estado_actual}' a '{nuevo_estado}'. Los estados permitidos son: {permitidos}.")
+        raise ValidationError(f"No se puede cambiar el estado de '{estado_actual}' a '{estado_entrega}'. Los estados permitidos son: {permitidos}.")
     
     return True
 
@@ -52,6 +66,8 @@ FLUJO_ESTADO_PEDIDO_VENTA = {
 
 def validar_cambio_estado_pedido_venta(pedido_venta, nuevo_estado):
     estado_actual = pedido_venta.estado
+    estado_actual = estado_actual.capitalize()
+    nuevo_estado = nuevo_estado.capitalize()
     
     if nuevo_estado not in FLUJO_ESTADO_PEDIDO_VENTA:
         raise ValidationError(f"El estado '{nuevo_estado}' no es válido.")

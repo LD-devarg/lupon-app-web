@@ -1,8 +1,11 @@
 
 
 # Al enviar el estado 'Entregada' en Ventas, modificar automaticamente el estado del pedido de venta a 'Completado'
-def completar_pedido_venta_al_entregar(venta, nuevo_estado):
-    if nuevo_estado == 'Entregada':
+def completar_pedido_venta_al_entregar(venta, estado_entrega):
+    estado_entrega = estado_entrega.capitalize()
+    
+    if estado_entrega == 'Entregada':
+        
         pedido_venta = venta.pedido_venta
         if pedido_venta and pedido_venta.estado not in ['Completado', 'Cancelado']:
             

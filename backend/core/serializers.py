@@ -3,7 +3,7 @@ from django.utils import timezone
 from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle
 from rest_framework.exceptions import ValidationError
 from .domain.logica import calcular_subtotal, calcular_total
-from .domain.validaciones_ventas import validar_cambio_estado_venta
+from .domain.validaciones_ventas import validar_cambio_estado_venta, validar_cambio_estado_pedido_venta, validar_venta
 from .domain.validaciones_cobros import validar_cobro
 from .servicios.automatizaciones import saldos_al_crear_venta, saldos_al_crear_cobro, saldos_al_crear_cobro_detalle, actualizar_estado_ventas_al_cobrar
 from decimal import Decimal, ROUND_HALF_UP
@@ -179,7 +179,14 @@ class PedidosVentasSerializer(serializers.ModelSerializer):
         return pedido
     
     def update(self, instance, validated_data):
-        detalles_data = validated_data.pop('detalles', [])
+        detalles_data = validated_data.pop('detalles', None)
+        
+        # Si hay cambio de estado, validar
+        estado_actual = instance.estado
+        nuevo_estado = validated_data.get('estado', estado_actual)
+        
+        if nuevo_estado != estado_actual:
+            validar_cambio_estado_pedido_venta(instance, nuevo_estado)        
         
         # Actualizar campos del pedido
         for attr, value in validated_data.items():
@@ -187,9 +194,10 @@ class PedidosVentasSerializer(serializers.ModelSerializer):
         instance.save()
         
         # Actualizar detalles
-        instance.detalles.all().delete()
-        for detalle_data in detalles_data:
-            PedidosVentasDetalle.objects.create(pedido_venta=instance, **detalle_data)
+        if detalles_data is not None:
+            instance.detalles.all().delete()
+            for detalle_data in detalles_data:
+                PedidosVentasDetalle.objects.create(pedido_venta=instance, **detalle_data)
         
         subtotal = calcular_subtotal(instance.detalles.all())
         instance.subtotal = subtotal
@@ -229,6 +237,9 @@ class VentasSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
         
+        # Validaciones antes de crear la venta
+        validar_venta(validated_data)
+        
         venta = Ventas.objects.create(**validated_data)
         
         for detalle_data in detalles_data:
@@ -253,7 +264,7 @@ class CambiarEstadoVentaSerializer(serializers.Serializer):
         'Cancelada',
     ]
     
-    nuevo_estado = serializers.ChoiceField(choices=TIPO_ESTADO_ENTREGA, required=True)
+    estado_entrega = serializers.ChoiceField(choices=TIPO_ESTADO_ENTREGA, required=True)
 
 class NuevaFechaEntregaSerializer(serializers.Serializer):
     nueva_fecha = serializers.DateField(required=True)

@@ -258,21 +258,18 @@ class VentasViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        nuevo_estado = serializer.validated_data['nuevo_estado']
-        
-        try:
-            validar_cambio_estado_venta(venta, nuevo_estado)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=400)
+        estado_entrega = serializer.validated_data['estado_entrega']
+
+        validar_cambio_estado_venta(venta, estado_entrega)
         # Automatizacion para manejar venta cancelada
-        if nuevo_estado == 'Cancelada':
+        if estado_entrega == 'Cancelada':
             cancelar_venta(venta)
             return Response({"status": "Venta cancelada correctamente."})
         
-        venta.estado_entrega = nuevo_estado
+        venta.estado_entrega = estado_entrega
         venta.save()
         # automatización: completar pedido de venta si la venta se marca como entregada
-        completar_pedido_venta_al_entregar(venta, nuevo_estado)
+        completar_pedido_venta_al_entregar(venta, estado_entrega)
 
         return Response({"status": "Estado de entrega actualizado correctamente."})
     

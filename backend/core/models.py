@@ -185,9 +185,9 @@ class Ventas(models.Model):
         ('reprogramada', 'Reprogramada'),
     ]
     FORMA_PAGO_CHOICES = [
-        ('CC', 'Cuenta Corriente'),
-        ('CO', 'Contado'),
-        ('CP', 'Contado Pendiente'),
+        ('cuenta corriente', 'Cuenta Corriente'),
+        ('contado', 'Contado'),
+        ('contado pendiente', 'Contado Pendiente'),
     ]
     MEDIO_PAGO_CHOICES = [
         ('efectivo', 'Efectivo'),
