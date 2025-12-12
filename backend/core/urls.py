@@ -7,7 +7,13 @@ from .views import (
     PedidosVentasViewSet,
     PedidosVentasDetalleViewSet,
     VentasViewSet,
-    VentasDetalleViewSet
+    VentasDetalleViewSet,
+    CobrosViewSet,
+    CobrosDetalleViewSet,
+    PedidosComprasViewSet,
+    PedidosComprasDetalleViewSet,
+    ComprasViewSet,
+    ComprasDetalleViewSet
 )
 
 router = DefaultRouter()
@@ -25,6 +31,18 @@ router.register(r'pedidos-ventas-detalle', PedidosVentasDetalleViewSet, basename
 # --- VENTAS Y DETALLES ---
 router.register(r'ventas', VentasViewSet, basename='ventas')
 router.register(r'ventas-detalle', VentasDetalleViewSet, basename='ventas-detalle')
+
+# --- COBROS Y DETALLES ---
+router.register(r'cobros', CobrosViewSet, basename='cobros')
+router.register(r'cobros-detalle', CobrosDetalleViewSet, basename='cobros-detalle')
+
+# --- PEDIDOS COMPRAS Y DETALLES ---
+router.register(r'pedidos-compras', PedidosComprasViewSet, basename='pedidos-compras')
+router.register(r'pedidos-compras-detalle', PedidosComprasDetalleViewSet, basename='pedidos-compras-detalle')
+
+# --- COMPRAS Y DETALLES ---
+router.register(r'compras', ComprasViewSet, basename='compras')
+router.register(r'compras-detalle', ComprasDetalleViewSet, basename='compras-detalle')
 
 urlpatterns = [
     path('', include(router.urls)),

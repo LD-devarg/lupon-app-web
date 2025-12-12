@@ -2,8 +2,6 @@ from django.db import models
 from django.utils import timezone as tz
 from django.contrib.auth.models import User
 
-
-
 # ============================================================
 # USUARIOS
 # ============================================================
@@ -184,6 +182,13 @@ class Ventas(models.Model):
         ('cancelada', 'Cancelada'),
         ('reprogramada', 'Reprogramada'),
     ]
+    
+    ESTADO_VENTA_CHOICES = [
+        ('en proceso', 'En Proceso'),
+        ('completada', 'Completada'),
+        ('cancelada', 'Cancelada'),
+    ]    
+    
     FORMA_PAGO_CHOICES = [
         ('cuenta corriente', 'Cuenta Corriente'),
         ('contado', 'Contado'),
@@ -214,6 +219,7 @@ class Ventas(models.Model):
     
     fecha_cancelacion = models.DateField(null=True, blank=True)
     motivo_cancelacion = models.TextField(blank=True, null=True)
+    estado_venta = models.CharField(max_length=20, choices=ESTADO_VENTA_CHOICES, default='en proceso')
 
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     costo_entrega = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -377,6 +383,18 @@ class Compras(models.Model):
         ('transferencia', 'Transferencia'),
     ]
 
+    ESTADO_PAGO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('pagado', 'Pagado'),
+        ('parcial', 'Parcial'),
+    ]
+    
+    ESTADO_COMPRA_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('recibida', 'Recibida'),
+        ('cancelada', 'Cancelada'),
+    ]
+
     pedido_compra = models.ForeignKey(
         PedidosCompras,
         null=True,
@@ -396,11 +414,15 @@ class Compras(models.Model):
 
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     extra = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     forma_pago = models.CharField(max_length=50, choices=FORMA_PAGO_CHOICES)
     estado_pago = models.CharField(max_length=20, default='pendiente')
+    estado_compra = models.CharField(max_length=20, choices=ESTADO_COMPRA_CHOICES, default='pendiente')
+    motivo_cancelacion = models.TextField(blank=True, null=True)
+    fecha_cancelacion = models.DateField(blank=True, null=True)
 
     observaciones = models.CharField(max_length=255, blank=True)
 

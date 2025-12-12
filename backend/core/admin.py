@@ -74,3 +74,19 @@ class VentasAdmin(admin.ModelAdmin):
     list_display = ("id", "pedido_venta", "fecha_venta", "total")
     search_fields = ("pedido_venta__cliente__nombre",)
     list_filter = ("fecha_venta",)
+    
+# ============================================================
+# Cobros y Cobros Detalle se administran en admin.py juntos
+# ============================================================
+
+from .models import Cobros, CobrosDetalle
+class CobrosDetalleInline(admin.TabularInline):
+    model = CobrosDetalle
+    extra = 1
+@admin.register(Cobros)
+class CobrosAdmin(admin.ModelAdmin):
+    inlines = [CobrosDetalleInline]
+    list_display = ("id", "cliente", "fecha_cobro", "monto", "saldo_disponible")
+    search_fields = ("cliente__nombre",)
+    list_filter = ("fecha_cobro",)
+# ============================================================

@@ -1,5 +1,6 @@
 Django
 djangorestframework
 django-cors-headers
+django-filter
 psycopg2-binary
 tzdata   # si necesitás datos de zona horaria

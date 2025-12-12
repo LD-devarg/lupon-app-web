@@ -29,27 +29,37 @@ def saldos_al_crear_cobro(cobro):
     contacto.saldo_contacto -= cobro.monto
     contacto.save(update_fields=['saldo_contacto'])
     
-    cobro.saldo_pendiente = cobro.monto
-    cobro.save(update_fields=['saldo_pendiente'])
+    cobro.saldo_disponible = cobro.monto
+    cobro.save(update_fields=['saldo_disponible'])
     
 def saldos_al_crear_cobro_detalle(cobro_detalle):
     venta = cobro_detalle.venta
     cobro = cobro_detalle.cobro
+    contacto = cobro.cliente
+    
+    # Actualizar saldo_contacto del contacto
+    contacto.saldo_contacto -= cobro_detalle.monto_aplicado
+    contacto.save(update_fields=['saldo_contacto'])
     
     # Actualizar saldo_pendiente de la venta
     venta.saldo_pendiente -= cobro_detalle.monto_aplicado
     venta.save(update_fields=['saldo_pendiente'])
     
-    # Actualizar el saldo_pendiente del cobro que es la suma de los montos aplicados 
-    cobro.saldo_pendiente -= cobro_detalle.monto_aplicado
-    cobro.save(update_fields=['saldo_pendiente'])
+    # Actualizar el saldo_disponible del cobro que es la suma de los montos aplicados 
+    cobro.saldo_disponible -= cobro_detalle.monto_aplicado
+    cobro.save(update_fields=['saldo_disponible'])
     
 # Automatizaciones de saldo_contacto. Cuando se cancela una venta se hace saldo_contacto -= total
-def saldos_al_cancelar_venta(venta):
+def cancelar_venta(venta):
     contacto = venta.cliente
     contacto.saldo_contacto -= venta.total
     contacto.save(update_fields=['saldo_contacto'])
-
+    
+    venta.saldo_pendiente = 0
+    venta.estado_cobro = 'Cancelado'
+    venta.estado_entrega = 'Cancelada'
+    venta.save(update_fields=['saldo_pendiente', 'estado_cobro', 'estado_entrega'])
+    
 # Automatizaciones para cambios de estado de cobro para las ventas al generarse un cobro
 
 def actualizar_estado_ventas_al_cobrar(cobro):
@@ -67,12 +77,11 @@ def actualizar_estado_ventas_al_cobrar(cobro):
         
         venta.save(update_fields=['estado_cobro'])
 
-def cancelar_venta(venta):
-    contacto = venta.cliente
-    contacto.saldo_contacto -= venta.total
-    contacto.save(update_fields=['saldo_contacto'])
+def cancelar_compra(compra):
+    proveedor = compra.proveedor
+    proveedor.saldo_contacto -= compra.total
+    proveedor.save(update_fields=['saldo_contacto'])
     
-    venta.saldo_pendiente = 0
-    venta.estado_cobro = 'Cancelado'
-    venta.estado_entrega = 'Cancelada'
-    venta.save(update_fields=['saldo_pendiente', 'estado_cobro', 'estado_entrega'])
+    compra.saldo_pendiente = 0
+    compra.estado_compra = 'Cancelada'
+    compra.save(update_fields=['saldo_pendiente', 'estado_compra'])
