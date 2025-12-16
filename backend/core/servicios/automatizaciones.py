@@ -16,11 +16,10 @@ def recalcular_estado_venta(venta):
     ):
         return 'completada'
     
-    return 'en proceso'  # venta sin pagos
-
+    return 'en proceso'
 
 def recalcular_estado_cobro(venta):
-    # Prioridad absoluta: venta cancelada
+   
     if venta.estado_venta == 'cancelada':
         return 'cancelado'
     
@@ -61,21 +60,24 @@ def completar_pedido_venta_al_entregar(venta, estado_entrega):
 # Al cancelar una venta
 def cancelar_venta(venta):
     # Desvincular pedido de compra si existe
-    if venta.pedido_compra_id:
+    if hasattr(venta, 'pedido_compra') and venta.pedido_compra:
         venta.pedido_compra = None
-        venta.save(update_fields=['pedido_compra'])
+        if hasattr(venta, 'save'):
+            venta.save(update_fields=['pedido_compra'])
     
     # Impacto contable
     contacto = venta.cliente
     contacto.saldo_contacto -= venta.total
-    contacto.save(update_fields=['saldo_contacto'])
+    if hasattr(contacto, 'save'):
+        contacto.save(update_fields=['saldo_contacto'])
     
     # Estados derivados
     venta.saldo_pendiente = 0
-    venta.estado_venta = 'Cancelada'
-    venta.estado_entrega = 'Cancelada'
+    venta.estado_venta = 'cancelada'
+    venta.estado_entrega = 'cancelada'
     venta.estado_cobro = recalcular_estado_cobro(venta)
-    venta.save(update_fields=['saldo_pendiente', 'estado_cobro', 'estado_entrega', 'estado_venta'])
+    if hasattr(venta, 'save'):
+        venta.save(update_fields=['saldo_pendiente', 'estado_cobro', 'estado_entrega', 'estado_venta'])
 
 
 # ----------------------
@@ -98,11 +100,12 @@ def saldos_al_crear_cobro_detalle(cobro_detalle):
     cobro = cobro_detalle.cobro
     
     venta.saldo_pendiente -= cobro_detalle.monto_aplicado
-    venta.save(update_fields=['saldo_pendiente'])
+    if hasattr(venta, 'save'):
+        venta.save(update_fields=['saldo_pendiente'])
     
     cobro.saldo_disponible -= cobro_detalle.monto_aplicado
-    cobro.save(update_fields=['saldo_disponible'])
-
+    if hasattr(cobro, 'save'):
+        cobro.save(update_fields=['saldo_disponible'])
 
 # Recalcular estado de cobro de las ventas afectadas
 def actualizar_estado_ventas_al_cobrar(cobro):
@@ -110,7 +113,8 @@ def actualizar_estado_ventas_al_cobrar(cobro):
     for venta in ventas:
         venta.estado_cobro = recalcular_estado_cobro(venta)
         venta.estado_venta = recalcular_estado_venta(venta)
-        venta.save(update_fields=['estado_cobro', 'estado_venta'])
+        if hasattr(venta, 'save'):
+            venta.save(update_fields=['estado_cobro', 'estado_venta'])
 
 
 # ======================================================
@@ -122,16 +126,16 @@ def actualizar_estado_ventas_al_cobrar(cobro):
 # ----------------------
 
 def recalcular_estado_pago(compra):
-    if compra.estado_compra == 'Cancelada':
-        return 'Cancelado'
+    if compra.estado_compra == 'cancelada':
+        return 'cancelado'
     
     if compra.saldo_pendiente == 0:
-        return 'Pagado'
+        return 'pagado'
     
     if 0 < compra.saldo_pendiente < compra.total:
-        return 'Parcial'
+        return 'parcial'
     
-    return 'Pendiente'  # compra sin pagos
+    return 'pendiente'  # compra sin pagos
 
 
 # ----------------------
@@ -142,12 +146,14 @@ def recalcular_estado_pago(compra):
 def cancelar_compra(compra):
     proveedor = compra.proveedor
     proveedor.saldo_contacto -= compra.total
-    proveedor.save(update_fields=['saldo_contacto'])
+    if hasattr(proveedor, 'save'):
+        proveedor.save(update_fields=['saldo_contacto'])
     
     compra.saldo_pendiente = 0
-    compra.estado_compra = 'Cancelada'
+    compra.estado_compra = 'cancelada'
     compra.estado_pago = recalcular_estado_pago(compra)
-    compra.save(update_fields=['saldo_pendiente', 'estado_compra', 'estado_pago'])
+    if hasattr(compra, 'save'):
+        compra.save(update_fields=['saldo_pendiente', 'estado_compra', 'estado_pago'])
 
 
 # Al cancelar un pedido de compra: desvincular ventas
@@ -166,10 +172,12 @@ def cancelar_pedido_compra(pedido_compra):
 def saldos_al_crear_pago(pago):
     contacto = pago.proveedor
     contacto.saldo_contacto -= pago.monto
-    contacto.save(update_fields=['saldo_contacto'])
+    if hasattr(contacto, 'save'):
+        contacto.save(update_fields=['saldo_contacto'])
     
     pago.saldo_disponible = pago.monto
-    pago.save(update_fields=['saldo_disponible'])
+    if hasattr(pago, 'save'):
+        pago.save(update_fields=['saldo_disponible'])
 
 
 # Al aplicar un pago a una compra
@@ -178,15 +186,17 @@ def saldo_al_crear_pago_detalle(detalle):
     pago = detalle.pago
     
     compra.saldo_pendiente -= detalle.monto_aplicado
-    compra.save(update_fields=['saldo_pendiente'])
+    if hasattr(compra, 'save'):
+        compra.save(update_fields=['saldo_pendiente'])
     
     pago.saldo_disponible -= detalle.monto_aplicado
-    pago.save(update_fields=['saldo_disponible'])
-
+    if hasattr(pago, 'save'):
+        pago.save(update_fields=['saldo_disponible'])
 
 # Recalcular estado de pago de las compras afectadas
 def actualizar_estado_compras_al_pagar(pago):
     compras = {detalle.compra for detalle in pago.detalles.all()}
     for compra in compras:
         compra.estado_pago = recalcular_estado_pago(compra)
-        compra.save(update_fields=['estado_pago'])
+        if hasattr(compra, 'save'):
+            compra.save(update_fields=['estado_pago'])

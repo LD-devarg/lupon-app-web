@@ -1,4 +1,4 @@
-from django.core.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError
 
 FLUJO_ESTADOS_PEDIDO_COMPRA = {
     'pendiente': ['validado', 'cancelado'],

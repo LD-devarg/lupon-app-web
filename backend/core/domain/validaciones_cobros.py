@@ -1,5 +1,4 @@
-from django.core.exceptions import ValidationError
-from core.models import Ventas
+from rest_framework.exceptions import ValidationError
 from .logica import calcular_monto_aplicado_total
 
 
@@ -17,7 +16,6 @@ def validar_cobro(validated_data, detalles_data):
 
 
 def validar_actualizacion_cobro(cobro, validated_data, detalles_data):
-    # El disponible real es el del modelo, no el que venga del front
     monto_disponible = cobro.saldo_disponible
 
     if calcular_monto_aplicado_total(detalles_data) > monto_disponible:
@@ -30,32 +28,25 @@ def validar_actualizacion_cobro(cobro, validated_data, detalles_data):
 
 
 def validar_detalles(detalles_data):
-    venta_ids = list({
-        d['venta'].id if isinstance(d['venta'], Ventas) else d['venta']
-        for d in detalles_data
-    })
-
-    ventas = {
-        v.id: v for v in Ventas.objects.filter(id__in=venta_ids)
-    }
-
     for d in detalles_data:
-        venta_id = d['venta'].id if isinstance(d['venta'], Ventas) else d['venta']
-        venta = ventas.get(venta_id)
+        venta = d['venta']
+        monto = d['monto_aplicado']
 
+        # Contrato mínimo esperado del objeto venta
         if venta.estado_venta.lower() == 'cancelada':
             raise ValidationError(
-                f"La venta con ID {venta.id} está cancelada y no puede recibir cobros."
+                f"La venta con ID {getattr(venta, 'id', 'desconocido')} "
+                f"está cancelada y no puede recibir cobros."
             )
 
-        if d['monto_aplicado'] > venta.saldo_pendiente:
+        if monto > venta.saldo_pendiente:
             raise ValidationError(
-                f"El monto aplicado para la venta con ID {venta.id} excede su saldo pendiente."
+                f"El monto aplicado excede el saldo pendiente de la venta."
             )
 
-        if d['monto_aplicado'] <= 0:
+        if monto <= 0:
             raise ValidationError(
-                f"El monto aplicado para la venta con ID {venta.id} debe ser positivo."
+                "El monto aplicado debe ser un valor positivo."
             )
 
     return True
