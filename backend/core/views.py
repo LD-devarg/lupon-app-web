@@ -6,13 +6,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle
-from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer, CobrosSerializer, CobrosDetalleSerializer, PedidosComprasSerializer, PedidosComprasDetalleSerializer, CancelarVentaSerializer, ComprasSerializer, ComprasDetalleSerializer, CambiarEstadoCompraSerializer, CancelarCompraSerializer
+from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle
+from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer, CobrosSerializer, CobrosDetalleSerializer, PedidosComprasSerializer, PedidosComprasDetalleSerializer, CancelarVentaSerializer, ComprasSerializer, ComprasDetalleSerializer, CambiarEstadoCompraSerializer, CancelarCompraSerializer, PagosSerializer, PagosDetalleSerializer
 from .domain.logica import calcular_precios_producto, calcular_subtotal
 from .domain.validaciones_ventas import validar_cambio_estado_venta, validar_cambio_estado_pedido_venta
 from .domain.validaciones_usuarios import validar_cambio_estado_usuario, validar_cambio_contrasena, validar_cambio_email
-from .domain.validaciones_compras import validar_cambio_estado_pedido_compra, validar_cambio_estado_compra
-from core.servicios.automatizaciones import completar_pedido_venta_al_entregar, cancelar_venta, cancelar_compra
+from .domain.validaciones_compras import validar_cambio_estado_compra
+from .servicios.automatizaciones import completar_pedido_venta_al_entregar, cancelar_compra, recalcular_estado_pago, recalcular_estado_venta
 # ============================================================
 # ViewSets
 # ============================================================
@@ -298,6 +298,7 @@ class PedidosVentasDetalleViewSet(viewsets.ModelViewSet):
     queryset = PedidosVentasDetalle.objects.all()
 
 # Ventas 
+
 class VentasViewSet(viewsets.ModelViewSet):
     serializer_class = VentasSerializer
     queryset = Ventas.objects.all()
@@ -308,30 +309,32 @@ class VentasViewSet(viewsets.ModelViewSet):
         venta = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         estado_entrega = serializer.validated_data['estado_entrega']
 
+        # Validación de flujo
         validar_cambio_estado_venta(venta, estado_entrega)
-        # Automatizacion para manejar venta cancelada
+
+        # ❌ NO se permite cancelar la venta desde entrega
         if estado_entrega == 'Cancelada':
-            serializer = CancelarVentaSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            motivo_cancelacion = serializer.validated_data['motivo_cancelacion']
-            venta.motivo_cancelacion = motivo_cancelacion
-            venta.fecha_cancelacion = timezone.now().date()
-            venta.estado_venta = 'cancelada'
-            venta.save(update_fields=['motivo_cancelacion', 'fecha_cancelacion', 'estado_venta'])
-            
-            cancelar_venta(venta)
-            
-            return Response({"status": "Venta cancelada correctamente."})
-        
+            return Response(
+                {"error": "La cancelación de la venta debe realizarse desde la acción de cancelar venta."},
+                status=400
+            )
+
+        # Actualizar estado de entrega
         venta.estado_entrega = estado_entrega
-        venta.save()
-        # automatización: completar pedido de venta si la venta se marca como entregada
+        venta.save(update_fields=['estado_entrega'])
+
+        # Automatización: completar pedido de venta
         completar_pedido_venta_al_entregar(venta, estado_entrega)
 
+        # Automatización CLAVE: recalcular estado de la venta
+        venta.estado_venta = recalcular_estado_venta(venta)
+        venta.save(update_fields=['estado_venta'])
+
         return Response({"status": "Estado de entrega actualizado correctamente."})
+
     
     # Reprogramar fecha de entrega
     @action(detail=True, methods=['post'], serializer_class=NuevaFechaEntregaSerializer)
@@ -347,7 +350,32 @@ class VentasViewSet(viewsets.ModelViewSet):
         venta.save()
         
         return Response({"status": "Fecha de entrega reprogramada correctamente."})
-    
+
+    @action(detail=True, methods=['post'], serializer_class=CancelarVentaSerializer)
+    def cancelar_venta(self, request, pk=None):
+        venta = self.get_object()
+        nuevo_estado = 'cancelada'
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        #validar con cambio de estado de venta
+        try:
+            validar_cambio_estado_venta(venta, nuevo_estado)
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=400)
+        
+        motivo_cancelacion = serializer.validated_data['motivo_cancelacion']      
+        
+        venta.estado_venta = 'cancelada'
+        venta.motivo_cancelacion = motivo_cancelacion
+        venta.fecha_cancelacion = timezone.now().date()
+        venta.save(update_fields=['estado_venta', 'motivo_cancelacion', 'fecha_cancelacion'])
+        
+        # Automatización: cancelar venta
+        cancelar_venta(venta)
+        
+        return Response({"status": "Venta cancelada correctamente."})
+
     # Filtrado por estado de entrega o busqueda por cliente
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -388,6 +416,17 @@ class CobrosViewSet(viewsets.ModelViewSet):
     serializer_class = CobrosSerializer
     queryset = Cobros.objects.all()
     
+    def get_queryset(self):
+        cliente = self.request.query_params.get('cliente', None)
+        fecha = self.request.query_params.get('fecha_cobro', None)
+        
+        if cliente:
+            return Cobros.objects.filter(cliente__nombre__icontains=cliente)
+        if fecha:
+            return Cobros.objects.filter(fecha_cobro=fecha)
+        
+        return super().get_queryset()
+    
 class CobrosDetalleViewSet(viewsets.ModelViewSet):
     serializer_class = CobrosDetalleSerializer
     queryset = CobrosDetalle.objects.all()
@@ -417,8 +456,6 @@ class PedidosComprasViewSet(viewsets.ModelViewSet):
         
         if pedido_compra.estado != 'Pendiente':
             return Response({"error": "No se pueden eliminar detalles de un Pedido de Compra que no esté en estado 'Pendiente'."}, status=400)
-        
-        detalle_id = request.query_params.get('detalle_id', None)
               
         try:
             detalle = PedidosComprasDetalle.objects.get(id=detalle_id, pedido_compra=pedido_compra)
@@ -554,8 +591,6 @@ class ComprasViewSet(viewsets.ModelViewSet):
 
             compra.motivo_cancelacion = motivo
             compra.fecha_cancelacion = timezone.now().date()
-            compra.estado_compra = "Cancelada"
-            compra.saldo_pendiente = 0
             compra.save()
 
             cancelar_compra(compra)
@@ -564,6 +599,7 @@ class ComprasViewSet(viewsets.ModelViewSet):
 
         # CASO RECIBIDA
         compra.estado_compra = nuevo_estado
+        compra.estado_pago = recalcular_estado_pago(compra)
         compra.save()
 
         return Response({"status": "Estado de compra actualizado correctamente."})  
@@ -571,4 +607,25 @@ class ComprasViewSet(viewsets.ModelViewSet):
 class ComprasDetalleViewSet(ReadOnlyModelViewSet):
     serializer_class = ComprasDetalleSerializer
     queryset = ComprasDetalle.objects.all()
+
+# Pagos
+
+class PagosViewSet(viewsets.ModelViewSet):
+    serializer_class = PagosSerializer
+    queryset = Pagos.objects.all()
     
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        proveedor = self.request.query_params.get('proveedor', None)
+        fecha = self.request.query_params.get('fecha_pago', None)
+        
+        if proveedor:
+            queryset = queryset.filter(proveedor__nombre__icontains=proveedor)
+        if fecha:
+            queryset = queryset.filter(fecha_pago=fecha)
+            
+        return queryset
+    
+class PagosDetalleViewSet(viewsets.ModelViewSet):
+    serializer_class = PagosDetalleSerializer
+    queryset = PagosDetalle.objects.all()

@@ -31,27 +31,30 @@ def validar_venta(validated_data):
 # Una venta entregada no puede cambiar de estado
 # Una venta cancelada no puede cambiar de estado
 
-FLUJO_ESTADO_ENTREGA = {
-    'Pendiente': ['Entregada', 'Reprogramada', 'Cancelada'],
-    'Reprogramada': ['Entregada', 'Cancelada'],
-    'Entregada': [],
-    'Cancelada': []
+FLUJO_ESTADO_VENTA = {
+    'en proceso': ['cancelada'],
+    'cancelada': [],
+    'completada': []
 }
 
-def validar_cambio_estado_venta(venta, estado_entrega):
-   
-    if estado_entrega not in FLUJO_ESTADO_ENTREGA:
-        raise ValidationError(f"El estado '{estado_entrega}' no es válido.")
-    
-    
-    estado_actual = venta.estado_entrega.capitalize()
-    estado_entrega = estado_entrega.capitalize()
-    estados_permitidos = FLUJO_ESTADO_ENTREGA[estado_actual]
-    if estado_entrega not in estados_permitidos:
-        permitidos = ', '.join(estados_permitidos)
-        raise ValidationError(f"No se puede cambiar el estado de '{estado_actual}' a '{estado_entrega}'. Los estados permitidos son: {permitidos}.")
-    
+def validar_cambio_estado_venta(venta, nuevo_estado):
+    nuevo_estado = nuevo_estado.lower()
+    estado_actual = venta.estado_venta.lower()
+
+    if nuevo_estado not in FLUJO_ESTADO_VENTA:
+        raise ValidationError(f"El estado '{nuevo_estado}' no es válido.")
+
+    estados_permitidos = FLUJO_ESTADO_VENTA.get(estado_actual, [])
+
+    if nuevo_estado not in estados_permitidos:
+        permitidos = ', '.join(estados_permitidos) or 'ninguno'
+        raise ValidationError(
+            f"No se puede cambiar el estado de '{estado_actual}' a '{nuevo_estado}'. "
+            f"Estados permitidos: {permitidos}."
+        )
+
     return True
+
 
 # =============================================================
 # Validaciones Pedidos de Venta
@@ -79,57 +82,37 @@ def validar_cambio_estado_pedido_venta(pedido_venta, nuevo_estado):
     
     return True
 
-# ==============================================================
-# Validaciones Cambio de Estado de Pedidos de Venta
-# ==============================================================
+FLUJO_ESTADO_ENTREGA = {
+    'pendiente': ['entregada', 'reprogramada'],
+    'reprogramada': ['entregada', 'reprogramada'],
+    'entregada': []
+}
 
-# Un pedido de venta pendiente puede pasar a Aceptado o Cancelado
-# Un pedido de venta aceptado puede pasar a Entregado o Cancelado
-# Un pedido de venta entregado no puede cambiar de estado
-# Un pedido de venta cancelado no puede cambiar de estado
+def validar_cambio_estado_entrega(venta, nuevo_estado):
 
-# =============================================================
-# Validaciones Pedidos de Compras
-# =============================================================
+    nuevo_estado = nuevo_estado.lower()
+    estado_actual = venta.estado_entrega.lower()
 
-# ==============================================================
-# Validaciones Cambio de Estado de Pedidos de Compras
-# ==============================================================
+    # Estado no permitido manualmente
+    if nuevo_estado == 'cancelada':
+        raise ValidationError(
+            "El estado 'cancelada' no puede seleccionarse manualmente. "
+            "La entrega se cancela automáticamente al cancelar la venta."
+        )
 
-# Un pedido de compra pendiente puede pasar a Validado o Cancelado
-# Un pedido de compra validado puede pasar a Recibido o Cancelado
-# Un pedido de compra recibido no puede cambiar de estado
-# Un pedido de compra cancelado no puede cambiar de estado
+    # Validar que el estado exista en el flujo
+    if estado_actual not in FLUJO_ESTADO_ENTREGA:
+        raise ValidationError(
+            f"Estado de entrega actual inválido: '{estado_actual}'."
+        )
 
-# =============================================================
-# Validaciones Compras
-# =============================================================
+    estados_permitidos = FLUJO_ESTADO_ENTREGA[estado_actual]
 
-# Una compra no puede ser realizada si Pedido de Compra no esta validado y el monto es == 0
+    if nuevo_estado not in estados_permitidos:
+        permitidos = ', '.join(estados_permitidos) or 'ninguno'
+        raise ValidationError(
+            f"No se puede cambiar el estado de entrega de '{estado_actual}' a '{nuevo_estado}'. "
+            f"Estados permitidos: {permitidos}."
+        )
 
-# =============================================================
-# Validaciones Cambio de Estado de Compras
-# =============================================================
-
-# Una compra pendiente puede pasar a Cancelada o Aceptada
-# Una compra aceptada puede pasar a Entregada o Cancelada
-# Una compra entregada no puede cambiar de estado
-# Una compra cancelada no puede cambiar de estado
-
-# =============================================================
-# Validaciones Pagos y Cobros
-# =============================================================
-
-# Un pago no puede ser realizado si el monto de la compra es == 0
-# Un cobro no puede ser realizado si la el monto de la venta es == 0
-# No se puede aplicar mas del monto cobrado
-
-# =============================================================
-# Validaciones de Forma de Pago
-# =============================================================
-
-# Si la forma de pago es "Contado" debe tener monto_cobrado (o monto_abonado) > 0 y tener medio de pago
-# si la forma de pago es "Cuenta Corriente" o "Contado Pendiente" no debe tener medio de pago y el monto_cobrado (o monto_abonado) debe ser 0
-
-
-
+    return True

@@ -2,14 +2,10 @@ from django.db import models
 from django.utils import timezone as tz
 from django.contrib.auth.models import User
 
-# ============================================================
-# USUARIOS
-# ============================================================
-
 class Usuarios(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     nombre_completo = models.CharField(max_length=100)
-    telefono = models.CharField(max_length=15, blank=True)
+    telefono = models.CharField(max_length=10, blank=True)
     
     # Indica si el usuario tiene permisos de administrador
     es_admin = models.BooleanField(default=False)
@@ -24,10 +20,6 @@ class Usuarios(models.Model):
     class Meta:
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
-
-# ============================================================
-# CONTACTOS
-# ============================================================
 
 class Contactos(models.Model):
     TIPO_CHOICES = [
@@ -65,10 +57,6 @@ class Contactos(models.Model):
         ordering = ['nombre']
         verbose_name = 'Contacto'
         verbose_name_plural = 'Contactos'
-
-# ============================================================
-# PRODUCTOS
-# ============================================================
 
 class Productos(models.Model):
     RUBRO_CHOICES = [
@@ -114,10 +102,6 @@ class Productos(models.Model):
         verbose_name = 'Producto'
         verbose_name_plural = 'Productos'
 
-# ============================================================
-# PEDIDOS DE VENTAS
-# ============================================================
-
 class PedidosVentas(models.Model):
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
@@ -152,8 +136,6 @@ class PedidosVentas(models.Model):
     def __str__(self):
         return f"Pedido #{self.id} - {self.cliente.nombre}"
 
-# Detalles de Pedidos de Ventas
-
 class PedidosVentasDetalle(models.Model):
     pedido_venta = models.ForeignKey(
         PedidosVentas,
@@ -171,9 +153,49 @@ class PedidosVentasDetalle(models.Model):
         verbose_name = 'Detalle de Pedido de Venta'
         verbose_name_plural = 'Detalles de Pedidos de Venta'
 
-# ============================================================
-# VENTAS
-# ============================================================
+class PedidosCompras(models.Model):
+    TIPO_ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('validado', 'Validado'),
+        ('cancelado', 'Cancelado'),
+        ('recibido', 'Recibido'),
+    ]
+    
+    proveedor = models.ForeignKey(
+        Contactos,
+        on_delete=models.CASCADE,
+        related_name='pedidos_compras',
+        limit_choices_to={'tipo': 'proveedor'}
+    )
+       
+    fecha_pedido = models.DateField(default=tz.localdate)
+    estado = models.CharField(max_length=50, choices=TIPO_ESTADO_CHOICES, default='pendiente')
+    observaciones = models.TextField(blank=True)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    creado_en = models.DateTimeField(default=tz.now)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Pedido de Compra #{self.id} - {self.proveedor.nombre}"
+
+class PedidosComprasDetalle(models.Model):
+    pedido_compra = models.ForeignKey(
+        PedidosCompras,
+        on_delete=models.CASCADE,
+        related_name='detalles'
+    )
+    
+    producto = models.ForeignKey(Productos, on_delete=models.CASCADE)
+    cantidad = models.IntegerField(default=0)
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.cantidad} x {self.producto.nombre} (Pedido #{self.pedido_compra.id})"
+    
+    class Meta:
+        verbose_name = 'Detalle de Pedido de Compra'
+        verbose_name_plural = 'Detalles de Pedidos de Compra'
 
 class Ventas(models.Model):
     ESTADO_ENTREGA_CHOICES = [
@@ -206,6 +228,14 @@ class Ventas(models.Model):
     ]
 
     pedido_venta = models.ForeignKey(PedidosVentas, on_delete=models.CASCADE, related_name='ventas')
+    pedido_compra = models.ForeignKey(
+        PedidosCompras,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='ventas'
+    )
+    
     fecha_venta = models.DateField(default=tz.localdate)
     cliente = models.ForeignKey(
         Contactos,
@@ -242,9 +272,7 @@ class Ventas(models.Model):
 
     def __str__(self):
         return f"Venta #{self.id} - Pedido #{self.pedido_venta.id}" 
-    
-# Detalles de Ventas
-    
+       
 class VentasDetalle(models.Model):
     venta = models.ForeignKey(
         Ventas,
@@ -259,10 +287,6 @@ class VentasDetalle(models.Model):
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre} (Venta #{self.venta.id})"
     
-# ============================================================
-# COBROS
-# ============================================================
-
 class Cobros(models.Model):
     MEDIO_PAGO_CHOICES = [
         ('efectivo', 'Efectivo'),
@@ -292,8 +316,6 @@ class Cobros(models.Model):
     def __str__(self):
         return f"Cobro #{self.id} - {self.cliente.nombre} - {self.monto}"
     
-# Detalles de Cobros
-
 class CobrosDetalle(models.Model):
     cobro = models.ForeignKey(
         Cobros,
@@ -310,68 +332,6 @@ class CobrosDetalle(models.Model):
     def __str__(self):
         return f"Cobro Detalle #{self.id} - Cobro #{self.cobro.id} - Venta #{self.venta.id}"
 
-
-# ============================================================
-# PEDIDOS DE COMPRAS
-# ============================================================
-
-class PedidosCompras(models.Model):
-    TIPO_ESTADO_CHOICES = [
-        ('pendiente', 'Pendiente'),
-        ('validado', 'Validado'),
-        ('cancelado', 'Cancelado'),
-        ('recibido', 'Recibido'),
-    ]
-    
-    proveedor = models.ForeignKey(
-        Contactos,
-        on_delete=models.CASCADE,
-        related_name='pedidos_compras',
-        limit_choices_to={'tipo': 'proveedor'}
-    )
-    
-    ventas_relacionadas = models.ManyToManyField(
-        Ventas,
-        related_name='pedidos_compras',
-        blank=True
-    )
-    
-    fecha_pedido = models.DateField(default=tz.localdate)
-    estado = models.CharField(max_length=50, choices=TIPO_ESTADO_CHOICES, default='pendiente')
-    observaciones = models.TextField(blank=True)
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
-    creado_en = models.DateTimeField(default=tz.now)
-    actualizado_en = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"Pedido de Compra #{self.id} - {self.proveedor.nombre}"
-
-# Detalles de Pedidos de Compras
-
-class PedidosComprasDetalle(models.Model):
-    pedido_compra = models.ForeignKey(
-        PedidosCompras,
-        on_delete=models.CASCADE,
-        related_name='detalles'
-    )
-    
-    producto = models.ForeignKey(Productos, on_delete=models.CASCADE)
-    cantidad = models.IntegerField(default=0)
-    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    def __str__(self):
-        return f"{self.cantidad} x {self.producto.nombre} (Pedido #{self.pedido_compra.id})"
-    
-    class Meta:
-        verbose_name = 'Detalle de Pedido de Compra'
-        verbose_name_plural = 'Detalles de Pedidos de Compra'
-
-
-# ============================================================
-# COMPRAS
-# ============================================================
-
 class Compras(models.Model):
     FORMA_PAGO_CHOICES = [
         ('cuenta corriente', 'Cuenta Corriente'),
@@ -387,6 +347,7 @@ class Compras(models.Model):
         ('pendiente', 'Pendiente'),
         ('pagado', 'Pagado'),
         ('parcial', 'Parcial'),
+        ('cancelado', 'Cancelado'),
     ]
     
     ESTADO_COMPRA_CHOICES = [
@@ -419,7 +380,7 @@ class Compras(models.Model):
     saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     forma_pago = models.CharField(max_length=50, choices=FORMA_PAGO_CHOICES)
-    estado_pago = models.CharField(max_length=20, default='pendiente')
+    estado_pago = models.CharField(max_length=20, choices=ESTADO_PAGO_CHOICES, default='pendiente')
     estado_compra = models.CharField(max_length=20, choices=ESTADO_COMPRA_CHOICES, default='pendiente')
     motivo_cancelacion = models.TextField(blank=True, null=True)
     fecha_cancelacion = models.DateField(blank=True, null=True)
@@ -437,8 +398,6 @@ class Compras(models.Model):
             return f"Compra #{self.id} - {self.proveedor.nombre} (PC #{self.pedido_compra.id})"
         return f"Compra #{self.id} - {self.proveedor.nombre}"
 
-# Detalles de la compra
-
 class ComprasDetalle(models.Model):
     compra = models.ForeignKey(
         Compras,
@@ -453,9 +412,6 @@ class ComprasDetalle(models.Model):
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre} (Compra #{self.compra.id})"
 
-# ============================================================
-# PAGOS
-# ============================================================
 class Pagos(models.Model):
     MEDIO_PAGO_CHOICES = [
         ('efectivo', 'Efectivo'),
@@ -485,8 +441,6 @@ class Pagos(models.Model):
     def __str__(self):
         return f"Pago #{self.id} - {self.proveedor.nombre} - {self.monto}"
 
-# Detalles del pago
-    
 class PagosDetalle(models.Model):
     pago = models.ForeignKey(
         Pagos,

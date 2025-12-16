@@ -1,13 +1,12 @@
 from rest_framework import serializers
-from django.utils import timezone 
 from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle
 from rest_framework.exceptions import ValidationError
 from .domain.logica import calcular_subtotal, calcular_total
-from .domain.validaciones_ventas import validar_cambio_estado_venta, validar_cambio_estado_pedido_venta, validar_venta
+from .domain.validaciones_ventas import validar_cambio_estado_pedido_venta, validar_venta
 from .domain.validaciones_cobros import validar_cobro, validar_actualizacion_cobro
-from .domain.validaciones_compras import validar_cambio_estado_compra, validar_cambio_estado_pedido_compra, validar_compra, validar_modificacion_pedido_compra
-from .servicios.automatizaciones import saldos_al_crear_venta, saldos_al_crear_cobro, saldos_al_crear_cobro_detalle, actualizar_estado_ventas_al_cobrar
-from decimal import Decimal, ROUND_HALF_UP
+from .domain.validaciones_compras import validar_cambio_estado_pedido_compra, validar_compra, validar_modificacion_pedido_compra
+from .domain.validaciones_pagos import validar_pago, validar_actualizacion_pago
+from .servicios.automatizaciones import saldos_al_crear_venta, saldos_al_crear_cobro, saldos_al_crear_cobro_detalle, actualizar_estado_ventas_al_cobrar, cancelar_pedido_compra, saldos_al_crear_pago, saldo_al_crear_pago_detalle, actualizar_estado_compras_al_pagar
 from django.db import transaction
 
 # ============================================================
@@ -210,17 +209,19 @@ class VentasDetalleSerializer(serializers.ModelSerializer):
 class VentasSerializer(serializers.ModelSerializer):
     # Vinculular detalles al serializer
     detalles = VentasDetalleSerializer(many=True)
+    pedido_compra = serializers.PrimaryKeyRelatedField(queryset=PedidosCompras.objects.all(), required=False, allow_null=True)
     
     class Meta:
         model = Ventas
         fields = [
             'id',
             'pedido_venta',
+            'pedido_compra',
             'fecha_venta',
             'cliente',
             'direccion_entrega',
             'fecha_entrega',
-            'observaciones',
+            'forma_pago',
             'detalles',
             'subtotal',
             'costo_entrega',
@@ -232,7 +233,7 @@ class VentasSerializer(serializers.ModelSerializer):
             'estado_entrega',
             'vencimiento',
             ]
-        read_only_fields = ['subtotal', 'total', 'saldo_pendiente', 'estado_venta', 'estado_cobro', 'vencimiento']
+        read_only_fields = ['subtotal', 'total', 'saldo_pendiente', 'estado_venta', 'estado_cobro', 'estado_entrega', 'vencimiento']
     
     
     @transaction.atomic
@@ -267,6 +268,7 @@ class CambiarEstadoVentaSerializer(serializers.Serializer):
     ]
     
     estado_entrega = serializers.ChoiceField(choices=TIPO_ESTADO_ENTREGA, required=True)
+
 class NuevaFechaEntregaSerializer(serializers.Serializer):
     nueva_fecha = serializers.DateField(required=True)
 
@@ -307,8 +309,10 @@ class CobrosSerializer(serializers.ModelSerializer):
         # Validar el cobro antes de crearlo
         validar_cobro(validated_data, detalles_data)
         
+        # Crear el cobro
         cobro = Cobros.objects.create(**validated_data)
         
+        # Automatizaciones de saldo_contacto y saldo_pendiente al crear un cobro
         saldos_al_crear_cobro(cobro)
 
         for detalle_data in detalles_data:
@@ -349,8 +353,6 @@ class CobrosSerializer(serializers.ModelSerializer):
                 # Actualiza saldo pendiente de la venta + estado
                 saldos_al_crear_cobro_detalle(detalle)
 
-            instance.save(update_fields=['saldo_disponible'])
-
         # Revisar si alguna venta quedó completamente pagada
         actualizar_estado_ventas_al_cobrar(instance)
 
@@ -367,14 +369,25 @@ class PedidosComprasDetalleSerializer(serializers.ModelSerializer):
 class PedidosComprasSerializer(serializers.ModelSerializer):
     # Vinculular detalles al serializer
     detalles = PedidosComprasDetalleSerializer(many=True)
+    ventas_ids = serializers.PrimaryKeyRelatedField(many=True, queryset=Ventas.objects.all(), source='ventas', required=False)
     
     class Meta:
         model = PedidosCompras
-        fields = "__all__"
+        fields = [
+            'id',
+            'proveedor',
+            'fecha_pedido',
+            'estado',
+            'observaciones',
+            'subtotal',
+            'detalles',
+            'ventas_ids',
+            ]
         read_only_fields = ['creado_en', 'actualizado_en', 'subtotal']
         
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
+        ventas = validated_data.pop('ventas', [])
         
         pedido = PedidosCompras.objects.create(**validated_data)
         
@@ -385,14 +398,22 @@ class PedidosComprasSerializer(serializers.ModelSerializer):
         pedido.subtotal = subtotal
         pedido.save()
         
+        Ventas.objects.filter(id__in=[v.id for v in ventas]).update(pedido_compra=pedido)
+        
         return pedido
     
     def update(self, instance, validated_data):
         detalles_data = validated_data.pop('detalles', None)
         nuevo_estado = validated_data.get('estado', instance.estado)
+        ventas = validated_data.pop('ventas', None)
+        
+        if ventas is not None:
+            Ventas.objects.filter(id__in=[v.id for v in ventas]).update(pedido_compra=instance)
         
         if 'estado' in validated_data:
             validar_cambio_estado_pedido_compra(instance, nuevo_estado)
+            if nuevo_estado == 'Cancelado':
+                cancelar_pedido_compra(instance)
         
         if detalles_data is not None:
             if instance.estado != 'Pendiente':
@@ -475,10 +496,11 @@ class ComprasSerializer(serializers.ModelSerializer):
         # Calcular totales
         subtotal = calcular_subtotal(compra.detalles.all())
         total = calcular_total(subtotal=subtotal, extra=extra, descuento=descuento)
-
+        
         compra.subtotal = subtotal
         compra.total = total
-        compra.save(update_fields=['subtotal', 'total'])
+        compra.saldo_pendiente = total  # Inicialmente el saldo pendiente es igual al total
+        compra.save(update_fields=['subtotal', 'total', 'saldo_pendiente'])
 
         return compra
         
@@ -488,8 +510,84 @@ class CambiarEstadoCompraSerializer(serializers.Serializer):
 class CancelarCompraSerializer(serializers.Serializer):
     motivo_cancelacion = serializers.CharField(required=True)
 
-        
-        
 # Pagos Serializer
+
+class PagosDetalleSerializer(serializers.ModelSerializer):
+    compra = serializers.PrimaryKeyRelatedField(queryset=Compras.objects.all())
+    
+    class Meta:
+        model = PagosDetalle
+        fields = ['compra', 'monto_aplicado']
+        read_only_fields = ['id', 'pago']
+
+class PagosSerializer(serializers.ModelSerializer):
+    detalles = PagosDetalleSerializer(many=True)
+      
+    class Meta:
+        model = Pagos
+        fields = [
+            'id',
+            'proveedor',
+            'fecha_pago',
+            'medio_pago',
+            'monto',
+            'observaciones',
+            'saldo_disponible',
+            'detalles'
+            ]
+        read_only_fields = ['creado_en', 'actualizado_en', 'saldo_disponible']
+        
+    # Seguir mismo patron que en CobrosSerializer
+    @transaction.atomic
+    def create(self, validated_data):
+        detalles_data = validated_data.pop('detalles', [])
+        
+        # Validar el pago antes de crearlo
+        validar_pago(validated_data, detalles_data)
+        
+        pago = Pagos.objects.create(**validated_data)
+        
+        saldos_al_crear_pago(pago)
+        
+        for detalle_data in detalles_data:           
+            detalle = PagosDetalle.objects.create(pago=pago, **detalle_data)
+            saldo_al_crear_pago_detalle(detalle)
+
+        actualizar_estado_compras_al_pagar(pago)
+            
+        return pago
+
+    def update(self, instance, validated_data):
+        detalles_data = validated_data.pop('detalles', None)
+
+        validar_actualizacion_pago(instance, validated_data, detalles_data or [])
+        
+        # Actualizar datos simples del pago (si corresponde)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # AGREGAR detalles nuevos, NO borrar los existentes
+        if detalles_data:
+            
+            for detalle_data in detalles_data:
+
+                detalle = PagosDetalle.objects.create(
+                    pago=instance,
+                    **detalle_data
+                )
+
+                # Actualiza saldo pendiente de la compra + estado
+                saldo_al_crear_pago_detalle(detalle)
+
+            instance.save(update_fields=['saldo_disponible'])
+
+        # Revisar si alguna compra quedó completamente pagada
+        actualizar_estado_compras_al_pagar(instance)
+
+        return instance
+
+    
+        
 
 # Pagos Detalle Serializer
