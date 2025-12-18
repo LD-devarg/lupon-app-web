@@ -1,0 +1,4 @@
+Tests de dominio (servicios de negocio)
+
+- Qué se prueba: automatizaciones y validaciones puramente de dominio para ventas, compras, pagos y cobros. Se mockean entidades simples y se invocan funciones como `cancelar_venta_domain`, verificando que ajusten estados de entrega/venta, dejen los saldos en 0 y actualicen el saldo del contacto. Las suites de validación ejercitan reglas de negocio (saldos negativos, estados inválidos, totales inconsistentes o pedidos duplicados) asegurando que se rechacen inputs que violan las invariantes.
+- Por qué da confianza: al correr en memoria sin capa HTTP ni DB, estos tests comprueban que la lógica crítica que mantiene consistencia de saldos y estados funciona sola. Si aquí pasa, cualquier llamada desde serializers o viewsets hereda reglas correctas y evita que el backend persista operaciones incoherentes.

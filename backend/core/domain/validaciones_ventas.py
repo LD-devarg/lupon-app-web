@@ -22,6 +22,18 @@ def validar_venta(validated_data):
     
     return True
 
+def validar_venta_detalles(detalles):
+    if not detalles or len(detalles) == 0:
+        raise ValidationError("La venta debe tener al menos un detalle.")
+    
+    for d in detalles:
+        if d.get("cantidad", 0) <= 0:
+            raise ValidationError("La cantidad de un detalle de venta debe ser mayor a 0.")
+        if d.get("precio_unitario", 0) < 0:
+            raise ValidationError("El precio unitario de un detalle de venta no puede ser negativo.")
+    return True
+
+
 # =============================================================
 # Validaciones Cambio de Estado de Ventas
 # =============================================================

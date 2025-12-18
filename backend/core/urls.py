@@ -5,7 +5,6 @@ from .views import (
     ContactosViewSet,
     ProductosViewSet,
     PedidosVentasViewSet,
-    PedidosVentasDetalleViewSet,
     VentasViewSet,
     VentasDetalleViewSet,
     CobrosViewSet,
@@ -13,7 +12,10 @@ from .views import (
     PedidosComprasViewSet,
     PedidosComprasDetalleViewSet,
     ComprasViewSet,
-    ComprasDetalleViewSet
+    ComprasDetalleViewSet,
+    PagosViewSet,
+    PagosDetalleViewSet,
+    NotasCreditoViewSet,
 )
 
 router = DefaultRouter()
@@ -26,7 +28,6 @@ router.register(r'productos', ProductosViewSet, basename='productos')
 
 # --- PEDIDOS DE VENTAS Y DETALLES ---
 router.register(r'pedidos-ventas', PedidosVentasViewSet, basename='pedidos-ventas')
-router.register(r'pedidos-ventas-detalle', PedidosVentasDetalleViewSet, basename='pedidos-ventas-detalle')
 
 # --- VENTAS Y DETALLES ---
 router.register(r'ventas', VentasViewSet, basename='ventas')
@@ -43,6 +44,14 @@ router.register(r'pedidos-compras-detalle', PedidosComprasDetalleViewSet, basena
 # --- COMPRAS Y DETALLES ---
 router.register(r'compras', ComprasViewSet, basename='compras')
 router.register(r'compras-detalle', ComprasDetalleViewSet, basename='compras-detalle')
+
+# --- PAGOS Y DETALLES ---
+router.register(r'pagos', PagosViewSet, basename='pagos')
+router.register(r'pagos-detalle', PagosDetalleViewSet, basename='pagos-detalle')
+
+
+# --- NOTAS DE CRÉDITO Y DETALLES ---
+router.register(r'notas-credito', NotasCreditoViewSet, basename='notas-credito')
 
 urlpatterns = [
     path('', include(router.urls)),

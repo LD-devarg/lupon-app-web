@@ -119,7 +119,7 @@ class PedidosVentas(models.Model):
     fecha_pedido = models.DateField(default=tz.localdate)
     direccion_entrega = models.CharField(max_length=200, blank=True, null=True)
     estado = models.CharField(max_length=50, choices=ESTADO_CHOICES, default='pendiente')
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
     aclaraciones = models.TextField(blank=True)
     
     motivo_cancelacion = models.TextField(blank=True, null=True)
@@ -143,7 +143,7 @@ class PedidosVentasDetalle(models.Model):
         related_name='detalles'
     )
     producto = models.ForeignKey(Productos, on_delete=models.CASCADE)
-    cantidad = models.IntegerField(default=0)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
@@ -171,7 +171,7 @@ class PedidosCompras(models.Model):
     fecha_pedido = models.DateField(default=tz.localdate)
     estado = models.CharField(max_length=50, choices=TIPO_ESTADO_CHOICES, default='pendiente')
     observaciones = models.TextField(blank=True)
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
 
     creado_en = models.DateTimeField(default=tz.now)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -187,7 +187,7 @@ class PedidosComprasDetalle(models.Model):
     )
     
     producto = models.ForeignKey(Productos, on_delete=models.CASCADE)
-    cantidad = models.IntegerField(default=0)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     
     def __str__(self):
@@ -260,8 +260,8 @@ class Ventas(models.Model):
 
     estado_entrega = models.CharField(max_length=20, choices=ESTADO_ENTREGA_CHOICES, default='pendiente')
 
-    estado_cobro = models.CharField(max_length=20, choices=ESTADO_COBRO_CHOICES, default='pendiente')
-    saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    estado_cobro = models.CharField(max_length=20, choices=ESTADO_COBRO_CHOICES, default='pendiente', editable=False)
+    saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
     vencimiento = models.DateField(null=True, blank=True)
 
     creado_en = models.DateTimeField(default=tz.now)
@@ -269,6 +269,12 @@ class Ventas(models.Model):
 
     class Meta:
         ordering = ['-fecha_venta']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(saldo_pendiente__gte=0),
+                name='saldo_pendiente_no_negativo'
+            ),
+        ]
 
     def __str__(self):
         return f"Venta #{self.id} - Pedido #{self.pedido_venta.id}" 
@@ -303,7 +309,7 @@ class Cobros(models.Model):
     fecha_cobro = models.DateField(default=tz.localdate)
     medio_pago = models.CharField(max_length=50, choices=MEDIO_PAGO_CHOICES)
     monto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    saldo_disponible = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    saldo_disponible = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
     
     observaciones = models.CharField(max_length=255, blank=True)
 
@@ -312,6 +318,12 @@ class Cobros(models.Model):
 
     class Meta:
         ordering = ['-fecha_cobro']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(saldo_disponible__gte=0),
+                name='saldo_disponible_no_negativo'
+            ),
+        ]
 
     def __str__(self):
         return f"Cobro #{self.id} - {self.cliente.nombre} - {self.monto}"
@@ -377,7 +389,8 @@ class Compras(models.Model):
     extra = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    saldo_pendiente = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
+    numero_documento = models.CharField(max_length=100, blank=True)
 
     forma_pago = models.CharField(max_length=50, choices=FORMA_PAGO_CHOICES)
     estado_pago = models.CharField(max_length=20, choices=ESTADO_PAGO_CHOICES, default='pendiente')
@@ -392,6 +405,12 @@ class Compras(models.Model):
 
     class Meta:
         ordering = ['-fecha_compra']
+        constraints = [
+        models.CheckConstraint(
+            condition=models.Q(saldo_pendiente__gte=0),
+            name='compra_saldo_pendiente_no_negativo'
+            ),
+        ]
 
     def __str__(self):
         if self.pedido_compra:
@@ -407,7 +426,6 @@ class ComprasDetalle(models.Model):
     producto = models.ForeignKey(Productos, on_delete=models.CASCADE)
     cantidad = models.DecimalField(max_digits=10, decimal_places=2)
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre} (Compra #{self.compra.id})"
@@ -428,7 +446,7 @@ class Pagos(models.Model):
     fecha_pago = models.DateField(default=tz.localdate)
     medio_pago = models.CharField(max_length=50, choices=MEDIO_PAGO_CHOICES)
     monto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    saldo_disponible = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    saldo_disponible = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
 
     observaciones = models.CharField(max_length=255, blank=True)
 
@@ -437,6 +455,12 @@ class Pagos(models.Model):
 
     class Meta:
         ordering = ['-fecha_pago']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(saldo_disponible__gte=0),
+                name='pago_saldo_disponible_no_negativo'
+            ),
+        ]
 
     def __str__(self):
         return f"Pago #{self.id} - {self.proveedor.nombre} - {self.monto}"
@@ -461,3 +485,82 @@ class PagosDetalle(models.Model):
         verbose_name = 'Detalle de Pago'
         verbose_name_plural = 'Detalles de Pagos'
 
+class NotasCredito(models.Model):
+    ESTADO_TIPO_CHOICES = [
+        ('venta', 'Venta'),
+        ('compra', 'Compra'),
+    ]
+    
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('aplicada', 'Aplicada'),
+        ('cancelada', 'Cancelada'),
+    ]
+    
+    contacto = models.ForeignKey(
+        Contactos,
+        on_delete=models.CASCADE,
+        related_name='notas_credito'
+    )
+    tipo = models.CharField(max_length=20, choices=ESTADO_TIPO_CHOICES)
+    fecha_nota = models.DateField(default=tz.localdate)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    numero_documento = models.CharField(max_length=100, blank=True)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    motivo = models.CharField(max_length=255, blank=True)
+    
+    creado_en = models.DateTimeField(default=tz.now)
+    actualizado_en = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-fecha_nota']
+        verbose_name = 'Nota de Crédito'
+        verbose_name_plural = 'Notas de Crédito'
+
+    def __str__(self):
+        return f"Nota de Crédito #{self.id} - {self.contacto.nombre}"
+
+class NotasCreditoDetalle(models.Model):
+    nota_credito = models.ForeignKey(
+        NotasCredito,
+        on_delete=models.CASCADE,
+        related_name='detalles'
+    )
+    producto = models.ForeignKey(Productos, on_delete=models.CASCADE)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"Detalle Nota Crédito #{self.id} - Nota #{self.nota_credito.id}"
+    
+class NotasCreditoAplicacion(models.Model):
+    nota_credito = models.ForeignKey(
+        NotasCredito,
+        on_delete=models.CASCADE,
+        related_name='aplicaciones'
+    )
+    venta = models.ForeignKey(
+        Ventas,
+        on_delete=models.CASCADE,
+        related_name='notas_credito_aplicadas',
+        null=True,
+        blank=True
+    )
+    compra = models.ForeignKey(
+        Compras,
+        on_delete=models.CASCADE,
+        related_name='notas_credito_aplicadas',
+        null=True,
+        blank=True
+    )
+    
+    monto_aplicado = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        
+        if self.compra:
+            return f"Aplicación Nota Crédito #{self.id} - Nota #{self.nota_credito.id} - Compra #{self.compra.id}"
+        
+        if self.venta:
+            return f"Aplicación Nota Crédito #{self.id} - Nota #{self.nota_credito.id} - Venta #{self.venta.id}"

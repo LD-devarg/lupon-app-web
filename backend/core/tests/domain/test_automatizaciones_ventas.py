@@ -1,4 +1,4 @@
-from core.servicios.automatizaciones import cancelar_venta
+from core.servicios.automatizaciones import cancelar_venta_domain as cancelar_venta
 
 
 # =====================================================

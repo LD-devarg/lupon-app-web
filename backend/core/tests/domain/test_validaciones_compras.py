@@ -5,6 +5,7 @@ from core.domain.validaciones_compras import (
     validar_cambio_estado_pedido_compra,
     validar_cambio_estado_compra,
     validar_compra,
+    validar_pedido_compra_para_compra,
 )
 
 
@@ -98,11 +99,11 @@ def test_estado_compra_inexistente_lanza_error():
 def test_compra_solo_se_permite_si_pedido_esta_validado():
     pedido = PedidoCompraMock(estado='validado')
     data = {'pedido_compra': pedido}
-    assert validar_compra(data) is True
+    assert validar_pedido_compra_para_compra(pedido) is True
 
 
 def test_compra_falla_si_pedido_no_esta_validado():
     pedido = PedidoCompraMock(estado='pendiente')
     data = {'pedido_compra': pedido}
     with pytest.raises(ValidationError):
-        validar_compra(data)
+        validar_pedido_compra_para_compra(pedido)

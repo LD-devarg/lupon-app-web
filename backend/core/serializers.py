@@ -1,12 +1,15 @@
 from rest_framework import serializers
-from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle
+from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle, NotasCredito, NotasCreditoDetalle, NotasCreditoAplicacion
+from django.contrib.auth.models import User
 from rest_framework.exceptions import ValidationError
 from .domain.logica import calcular_subtotal, calcular_total
-from .domain.validaciones_ventas import validar_cambio_estado_pedido_venta, validar_venta
+from .domain.validaciones_contactos import validar_forma_pago_contacto
+from .domain.validaciones_ventas import validar_cambio_estado_pedido_venta, validar_venta, validar_venta_detalles
 from .domain.validaciones_cobros import validar_cobro, validar_actualizacion_cobro
-from .domain.validaciones_compras import validar_cambio_estado_pedido_compra, validar_compra, validar_modificacion_pedido_compra
+from .domain.validaciones_compras import validar_cambio_estado_pedido_compra, validar_compra, validar_modificacion_pedido_compra, validar_asignacion_ventas_pedido_compra
 from .domain.validaciones_pagos import validar_pago, validar_actualizacion_pago
-from .servicios.automatizaciones import saldos_al_crear_venta, saldos_al_crear_cobro, saldos_al_crear_cobro_detalle, actualizar_estado_ventas_al_cobrar, cancelar_pedido_compra, saldos_al_crear_pago, saldo_al_crear_pago_detalle, actualizar_estado_compras_al_pagar
+from .domain.validaciones_notascredito import validar_nota_credito
+from .servicios.automatizaciones import saldos_al_crear_venta, saldos_al_crear_cobro, saldos_al_crear_cobro_detalle, actualizar_estado_ventas_al_cobrar, cancelar_pedido_compra, saldos_al_crear_pago, saldo_al_crear_pago_detalle, actualizar_estado_compras_al_pagar, recalcular_estado_pago, aplicar_nota_credito
 from django.db import transaction
 
 # ============================================================
@@ -33,6 +36,21 @@ class UsuariosSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["nombre_completo"]  # NO se modifica
 
+    def create(self, validated_data):
+        user_data = validated_data.pop("user", {})
+        password = validated_data.pop("password", None)
+
+        user = User.objects.create(
+            username=user_data.get("username"),
+            email=user_data.get("email"),
+        )
+        if password:
+            user.set_password(password)
+            user.save()
+
+        usuario = Usuarios.objects.create(user=user, **validated_data)
+        return usuario
+    @transaction.atomic
     def update(self, instance, validated_data):
         # Extraer datos de user
         user_data = validated_data.pop("user", {})
@@ -100,8 +118,9 @@ class ContactosSerializer(serializers.ModelSerializer):
         calle = validated_data.pop('calle', '')
         numero = validated_data.pop('numero', '')
         ciudad = validated_data.pop('ciudad', '')
-
-        validated_data['direccion'] = f"{calle} {numero}, {ciudad}, Buenos Aires, Argentina"
+        
+        if calle and numero and ciudad:
+            validated_data['direccion'] = f"{calle} {numero}, {ciudad}, Buenos Aires, Argentina"
         
         return Contactos.objects.create(**validated_data)
     
@@ -118,16 +137,9 @@ class ContactosSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         # Si la forma de pago es "Contado" debe tener dias_cc == 0
-        if data.get('forma_pago') == 'contado' and data.get('dias_cc', 0) != 0:
-            raise ValidationError("Si la forma de pago es 'Contado', los dias de credito deben ser 0.")
-
-        # Si la forma de pago es "Cuenta Corriente" debe tener dias_cc > 0
-        if data.get('forma_pago') == 'cuenta corriente' and data.get('dias_cc', 0) == 0:
-            raise ValidationError("Si la forma de pago es 'Cuenta Corriente', los dias de credito deben ser mayores a 0.")
-
+        validar_forma_pago_contacto(data)
         return data
- 
-            
+           
 # Productos
 
 class ProductosSerializer(serializers.ModelSerializer):
@@ -163,7 +175,7 @@ class PedidosVentasSerializer(serializers.ModelSerializer):
             
         subtotal = calcular_subtotal(pedido.detalles.all())
         pedido.subtotal = subtotal
-        pedido.save()
+        pedido.save(update_fields=['subtotal'])
         
         return pedido
     
@@ -190,7 +202,7 @@ class PedidosVentasSerializer(serializers.ModelSerializer):
         
         subtotal = calcular_subtotal(instance.detalles.all())
         instance.subtotal = subtotal
-        instance.save()
+        instance.save(update_fields=['subtotal'])
         
         return instance
 
@@ -242,6 +254,7 @@ class VentasSerializer(serializers.ModelSerializer):
         
         # Validaciones antes de crear la venta
         validar_venta(validated_data)
+        validar_venta_detalles(detalles_data)
         
         venta = Ventas.objects.create(**validated_data)
         
@@ -253,7 +266,6 @@ class VentasSerializer(serializers.ModelSerializer):
         
         venta.subtotal = subtotal
         venta.total = total
-        venta.saldo_pendiente = venta.total # Inicialmente el saldo pendiente es igual al total
         venta.save(update_fields=['subtotal', 'total', 'saldo_pendiente'])
         
         saldos_al_crear_venta(venta)
@@ -261,10 +273,10 @@ class VentasSerializer(serializers.ModelSerializer):
 
 class CambiarEstadoVentaSerializer(serializers.Serializer):
     TIPO_ESTADO_ENTREGA = [
-        'Pendiente',
-        'Reprogramada',
-        'Entregada',
-        'Cancelada',
+        'pendiente',
+        'reprogramada',
+        'entregada',
+        'cancelada',
     ]
     
     estado_entrega = serializers.ChoiceField(choices=TIPO_ESTADO_ENTREGA, required=True)
@@ -316,7 +328,6 @@ class CobrosSerializer(serializers.ModelSerializer):
         saldos_al_crear_cobro(cobro)
 
         for detalle_data in detalles_data:
-            print("DETALLE DATA:", detalle_data)
             detalle = CobrosDetalle.objects.create(cobro=cobro, **detalle_data)
             
             saldos_al_crear_cobro_detalle(detalle)             
@@ -367,10 +378,14 @@ class PedidosComprasDetalleSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'pedido_compra']
 
 class PedidosComprasSerializer(serializers.ModelSerializer):
-    # Vinculular detalles al serializer
     detalles = PedidosComprasDetalleSerializer(many=True)
-    ventas_ids = serializers.PrimaryKeyRelatedField(many=True, queryset=Ventas.objects.all(), source='ventas', required=False)
-    
+    ventas_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Ventas.objects.all(),
+        source='ventas',
+        required=False
+    )
+
     class Meta:
         model = PedidosCompras
         fields = [
@@ -382,58 +397,77 @@ class PedidosComprasSerializer(serializers.ModelSerializer):
             'subtotal',
             'detalles',
             'ventas_ids',
-            ]
+        ]
         read_only_fields = ['creado_en', 'actualizado_en', 'subtotal']
-        
+
+    @transaction.atomic
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
         ventas = validated_data.pop('ventas', [])
-        
+
         pedido = PedidosCompras.objects.create(**validated_data)
-        
+
         for detalle_data in detalles_data:
-            PedidosComprasDetalle.objects.create(pedido_compra=pedido, **detalle_data)
-            
-        subtotal = calcular_subtotal(pedido.detalles.all())
-        pedido.subtotal = subtotal
-        pedido.save()
-        
-        Ventas.objects.filter(id__in=[v.id for v in ventas]).update(pedido_compra=pedido)
-        
+            PedidosComprasDetalle.objects.create(
+                pedido_compra=pedido,
+                **detalle_data
+            )
+
+        pedido.subtotal = calcular_subtotal(pedido.detalles.all())
+        pedido.save(update_fields=['subtotal'])
+
+        if ventas:
+            validar_asignacion_ventas_pedido_compra(pedido, ventas)
+            Ventas.objects.filter(
+                id__in=[v.id for v in ventas]
+            ).update(pedido_compra=pedido)
+
         return pedido
-    
+
+    @transaction.atomic
     def update(self, instance, validated_data):
         detalles_data = validated_data.pop('detalles', None)
-        nuevo_estado = validated_data.get('estado', instance.estado)
         ventas = validated_data.pop('ventas', None)
-        
+        nuevo_estado = validated_data.get('estado', instance.estado)
+
         if ventas is not None:
-            Ventas.objects.filter(id__in=[v.id for v in ventas]).update(pedido_compra=instance)
-        
-        if 'estado' in validated_data:
+            validar_asignacion_ventas_pedido_compra(instance, ventas)
+
+        if nuevo_estado != instance.estado:
             validar_cambio_estado_pedido_compra(instance, nuevo_estado)
-            if nuevo_estado == 'Cancelado':
-                cancelar_pedido_compra(instance)
-        
+
         if detalles_data is not None:
-            if instance.estado != 'Pendiente':
-                raise ValidationError("No se pueden modificar los detalles de un Pedido de Compra que no esté en estado 'Pendiente'.")
+            if instance.estado != 'pendiente':
+                raise ValidationError(
+                    "No se pueden modificar los detalles de un Pedido de Compra que no esté en estado 'pendiente'."
+                )
             validar_modificacion_pedido_compra(instance)
-            
-        # Actualizar campos del pedido
+
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        
-        # Actualizar detalles
+
+
+        if nuevo_estado == 'cancelado':
+            cancelar_pedido_compra(instance)
+
+        if ventas is not None:
+            Ventas.objects.filter(
+                id__in=[v.id for v in ventas]
+            ).update(pedido_compra=instance)
+
         if detalles_data is not None:
+            instance.detalles.all().delete()
             for detalle_data in detalles_data:
-                PedidosComprasDetalle.objects.create(pedido_compra=instance, **detalle_data)
-        
-        subtotal = calcular_subtotal(instance.detalles.all())
-        instance.subtotal = subtotal
-        instance.save()
-        
+                PedidosComprasDetalle.objects.create(
+                    pedido_compra=instance,
+                    **detalle_data
+                )
+
+        instance.subtotal = calcular_subtotal(instance.detalles.all())
+        instance.save(update_fields=['subtotal'])
+
         return instance
     
 # Compras
@@ -459,29 +493,20 @@ class ComprasSerializer(serializers.ModelSerializer):
             'descuento',
             'observaciones',
             'detalles',
+            'numero_documento',
             'subtotal',
             'total',
             'saldo_pendiente',
             'estado_pago',
             ]
-        read_only_fields = ['subtotal', 'total', 'saldo_pendiente', 'estado_pago']
+        read_only_fields = ['subtotal', 'total', 'saldo_pendiente', 'estado_compra','estado_pago']
 
     @transaction.atomic
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
 
-        # Validación de negocio principal
-        validar_compra(validated_data)
-
         # Validar detalles antes de crear nada
-        if not detalles_data:
-            raise ValidationError("La compra debe contener al menos un detalle.")
-
-        for d in detalles_data:
-            if d.get("cantidad", 0) <= 0:
-                raise ValidationError("La cantidad debe ser mayor a cero.")
-            if d.get("precio_unitario", 0) <= 0:
-                raise ValidationError("El precio unitario debe ser mayor a cero.")
+        validar_compra(validated_data, detalles_data)
 
         # Normalizar valores numéricos
         extra = validated_data.get('extra') or 0
@@ -502,7 +527,13 @@ class ComprasSerializer(serializers.ModelSerializer):
         compra.saldo_pendiente = total  # Inicialmente el saldo pendiente es igual al total
         compra.save(update_fields=['subtotal', 'total', 'saldo_pendiente'])
 
+        recalcular_estado_pago(compra)
+
         return compra
+    
+    def validate(self, attrs):
+        validar_compra(attrs, attrs.get('detalles', []))
+        return attrs
         
 class CambiarEstadoCompraSerializer(serializers.Serializer):
     estado_compra = serializers.CharField(required=True)
@@ -587,7 +618,81 @@ class PagosSerializer(serializers.ModelSerializer):
 
         return instance
 
-    
+# Notas de Credito
+class NotasCreditoDetalleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotasCreditoDetalle
+        fields = [
+            'producto',
+            'cantidad',
+            'precio_unitario',
+        ]
+        read_only_fields = ['id', 'nota_credito']
         
+class NotasCreditoAplicacionSerializer(serializers.ModelSerializer):
+    venta = serializers.PrimaryKeyRelatedField(queryset=Ventas.objects.all(), required=False, allow_null=True)
+    compra = serializers.PrimaryKeyRelatedField(queryset=Compras.objects.all(), required=False, allow_null=True)
+    
+    class Meta:
+        model = NotasCreditoAplicacion
+        fields = [
+            'venta',
+            'compra',
+            'monto_aplicado'
+        ]
 
-# Pagos Detalle Serializer
+class NotasCreditoSerializer(serializers.ModelSerializer):
+    detalles = NotasCreditoDetalleSerializer(many=True)
+    aplicaciones = NotasCreditoAplicacionSerializer(many=True, required=False)
+    
+    class Meta:
+        model = NotasCredito
+        fields = [
+            'id',
+            'contacto',
+            'tipo',
+            'fecha_nota',
+            'subtotal',
+            'numero_documento',
+            'estado',
+            'motivo',
+            'total',
+            'detalles',
+            'aplicaciones'
+        ]
+        read_only_fields = ['creado_en', 'actualizado_en', 'subtotal', 'total', 'estado']
+    
+    @transaction.atomic    
+    def create(self, validated_data):
+        validar_nota_credito({
+            'tipo': validated_data.get('tipo'),
+            'detalles': validated_data.get('detalles', []),
+            'aplicaciones': validated_data.get('aplicaciones', []),
+        })
+        
+        
+        detalles_data = validated_data.pop('detalles', [])
+        aplicaciones_data = validated_data.pop('aplicaciones', [])
+        
+        nota_credito = NotasCredito.objects.create(**validated_data)
+        
+        for detalle_data in detalles_data:
+            NotasCreditoDetalle.objects.create(
+                nota_credito=nota_credito, 
+                **detalle_data
+            )
+        
+        subtotal = calcular_subtotal(nota_credito.detalles.all())
+        nota_credito.subtotal = subtotal
+        nota_credito.total = subtotal  # Asumiendo que no hay otros cargos/descuentos
+        nota_credito.save(update_fields=['subtotal', 'total'])
+        
+        for aplicacion_data in aplicaciones_data:
+            NotasCreditoAplicacion.objects.create(
+                nota_credito=nota_credito, 
+                **aplicacion_data
+                )
+        
+        aplicar_nota_credito(nota_credito)
+
+        return nota_credito

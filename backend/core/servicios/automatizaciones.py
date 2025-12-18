@@ -1,3 +1,5 @@
+from core.domain.logica import calcular_precios_producto
+
 # ======================================================
 # VENTAS & COBROS
 # ======================================================
@@ -8,6 +10,14 @@
 
 def recalcular_estado_venta(venta):
     if venta.estado_venta == 'cancelada':
+        return 'cancelada'
+    
+    # Cancelada por NC (sin cobros)
+    if (
+        venta.saldo_pendiente == 0
+        and not venta.cobros_detalle.exists()
+        and venta.notas_credito_aplicadas.exists()
+    ):
         return 'cancelada'
     
     if (
@@ -22,6 +32,10 @@ def recalcular_estado_cobro(venta):
    
     if venta.estado_venta == 'cancelada':
         return 'cancelado'
+    
+    # Para nota de credito el criterio es, si el saldo pendiente queda en 0 y además la venta no tiene cobros asociados entonces se concidera que el cobro es "cancelado"
+    if (venta.saldo_pendiente == 0 and not venta.cobros_detalle.exists() and venta.notas_credito_aplicadas.exists()):
+        return "cancelado"
     
     if venta.saldo_pendiente == 0:
         return 'cobrado'
@@ -58,7 +72,7 @@ def completar_pedido_venta_al_entregar(venta, estado_entrega):
 
 
 # Al cancelar una venta
-def cancelar_venta(venta):
+def cancelar_venta_domain(venta):
     # Desvincular pedido de compra si existe
     if hasattr(venta, 'pedido_compra') and venta.pedido_compra:
         venta.pedido_compra = None
@@ -197,6 +211,53 @@ def saldo_al_crear_pago_detalle(detalle):
 def actualizar_estado_compras_al_pagar(pago):
     compras = {detalle.compra for detalle in pago.detalles.all()}
     for compra in compras:
-        compra.estado_pago = recalcular_estado_pago(compra)
+        nuevo_estado = recalcular_estado_pago(compra)
+        compra.estado_pago = nuevo_estado
         if hasattr(compra, 'save'):
             compra.save(update_fields=['estado_pago'])
+
+
+def recalcular_precios_producto(producto):
+    precios = calcular_precios_producto(producto.precio_compra)
+    
+    for campo, valor in precios.items():
+        setattr(producto, campo, valor)
+        
+    producto.save(update_fields=list(precios.keys()))
+
+def aplicar_nota_credito(nota_credito):
+    """
+    Aplica el impacto contable de una nota de crédito ya creada
+    (se asume que detalles y aplicaciones existen).
+    """
+
+    # 1. Impacto en documentos
+    for aplicacion in nota_credito.aplicaciones.all():
+        documento = aplicacion.compra or aplicacion.venta
+
+        documento.saldo_pendiente -= aplicacion.monto_aplicado
+
+        if aplicacion.venta:
+            documento.estado_cobro = recalcular_estado_cobro(documento)
+            documento.estado_venta = recalcular_estado_venta(documento)
+            documento.save(update_fields=[
+                'saldo_pendiente',
+                'estado_cobro',
+                'estado_venta'
+            ])
+        else:
+            documento.estado_pago = recalcular_estado_pago(documento)
+            documento.save(update_fields=[
+                'saldo_pendiente',
+                'estado_pago'
+            ])
+
+
+    # 2. Impacto en contacto
+    contacto = nota_credito.contacto
+    contacto.saldo_contacto -= nota_credito.total
+    contacto.save(update_fields=['saldo_contacto'])
+
+    # 3. Estado de la nota de crédito
+    nota_credito.estado = 'aplicada'
+    nota_credito.save(update_fields=['estado'])

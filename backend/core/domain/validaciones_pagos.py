@@ -14,7 +14,7 @@ def validar_pago(validated_data, detalles_data):
     """
     monto = validated_data['monto']
 
-    if monto < 0:
+    if monto <= 0:
         raise ValidationError("El monto del pago debe ser un valor positivo.")
 
     if calcular_monto_aplicado_total(detalles_data) > monto:
