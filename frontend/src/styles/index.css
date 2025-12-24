@@ -2,3 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
+.neuro-shadow-button { 
+    border-radius: 20px;
+    background: rgb(212, 212, 212);
+    box-shadow: 10px 10px 20px rgba(0,0,0,0.15),
+                -5px -5px 20px #ffffff;
+}
+
+.neuro-shadow-div {
+    border-radius: 10px; /* ajustá si hace falta */
+
+    box-shadow:
+        -2px -2px 10px #fafafa,
+        4px 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.botones p {
+    color: #232323;
+}
+
+.pedidos-shadow{
+
+    border-radius: 16px; 
+
+    box-shadow:
+        -4px -4px 10px rgba(255, 255, 255, 1),
+        4px 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.input-shadow {
+    box-shadow:
+        inset -4px -4px 10px rgba(255, 255, 255, 1),
+        inset 4px 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.input-wrap {
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.input-wrap.input-shadow {
+  box-shadow:
+    inset -4px -4px 10px rgba(255, 255, 255, 1),
+    inset 4px 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.input-wrap input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 16px; /* clave para mobile */
+}

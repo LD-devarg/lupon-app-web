@@ -188,6 +188,11 @@ class PedidosVentasSerializer(serializers.ModelSerializer):
         
         if nuevo_estado != estado_actual:
             validar_cambio_estado_pedido_venta(instance, nuevo_estado)        
+
+        if instance.estado != 'pendiente' and detalles_data is not None:
+            raise ValidationError(
+                "No se pueden modificar los detalles de un Pedido de Venta que no esté en estado 'pendiente'."
+            )
         
         # Actualizar campos del pedido
         for attr, value in validated_data.items():
