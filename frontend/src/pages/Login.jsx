@@ -1,28 +1,44 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
+import { API_BASE, setAuthTokens, clearAuthTokens } from "../services/api/base";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(localStorage.getItem("devAuthUser") || "");
-  const [pass, setPass] = useState(localStorage.getItem("devAuthPass") || "");
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!user || !pass) {
       setError("Completa usuario y password.");
       return;
     }
-    localStorage.setItem("devAuthUser", user);
-    localStorage.setItem("devAuthPass", pass);
     setError("");
-    navigate("/pedidos-ventas");
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`${API_BASE}/token/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: user, password: pass }),
+      });
+      if (!response.ok) {
+        throw new Error("Credenciales invalidas.");
+      }
+      const data = await response.json();
+      setAuthTokens({ access: data.access, refresh: data.refresh });
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err?.message || "No se pudo validar el acceso.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClear = () => {
-    localStorage.removeItem("devAuthUser");
-    localStorage.removeItem("devAuthPass");
+    clearAuthTokens();
     setUser("");
     setPass("");
   };
@@ -31,7 +47,7 @@ export default function Login() {
     <div className="mx-auto mt-6 w-full max-w-sm rounded-xl bg-neutral-200 p-4 shadow text-center">
       <h2 className="text-xl font-semibold text-gray-800">Acceso dev</h2>
       <p className="mt-1 text-sm text-gray-600">
-        Usa tu usuario y password para consumir la API.
+        Usa tu usuario y password.
       </p>
 
       <form className="mt-4 space-y-3 text-left" onSubmit={handleSubmit}>
@@ -59,8 +75,9 @@ export default function Login() {
         <Button
           type="submit"
           className="w-full rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+          disabled={isSubmitting}
         >
-          Guardar credenciales
+          {isSubmitting ? "Validando..." : "Ingresar"}
         </Button>
         <Button
           type="button"
@@ -68,6 +85,13 @@ export default function Login() {
           onClick={handleClear}
         >
           Limpiar
+        </Button>
+        <Button
+          type="button"
+          className="w-full rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+          onClick={() => navigate("/register")}
+        >
+          Registrarse
         </Button>
       </form>
     </div>

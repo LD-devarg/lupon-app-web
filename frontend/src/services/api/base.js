@@ -1,22 +1,56 @@
-const API_BASE = "/api";
+export const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
-function getBasicAuthHeader() {
-  const user = localStorage.getItem("devAuthUser");
-  const pass = localStorage.getItem("devAuthPass");
-  if (!user || !pass) return null;
-  return `Basic ${btoa(`${user}:${pass}`)}`;
+const ACCESS_KEY = "authAccessToken";
+const REFRESH_KEY = "authRefreshToken";
+
+function getAccessToken() {
+  return localStorage.getItem(ACCESS_KEY);
 }
 
-async function request(path, options = {}) {
-  const authHeader = getBasicAuthHeader();
+function getRefreshToken() {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function setAuthTokens({ access, refresh }) {
+  if (access) localStorage.setItem(ACCESS_KEY, access);
+  if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
+}
+
+export function clearAuthTokens() {
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+}
+
+async function request(path, options = {}, retry = true) {
+  const accessToken = getAccessToken();
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...(authHeader ? { Authorization: authHeader } : {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(options.headers || {}),
     },
     ...options,
   });
+
+  if (response.status === 401 && retry) {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      const refreshResponse = await fetch(`${API_BASE}/token/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        if (refreshData?.access) {
+          setAuthTokens({ access: refreshData.access });
+          return request(path, options, false);
+        }
+      } else {
+        clearAuthTokens();
+      }
+    }
+  }
 
   if (!response.ok) {
     let message = response.statusText;

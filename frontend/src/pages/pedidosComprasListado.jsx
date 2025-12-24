@@ -1,24 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
-import { getClientes } from "../services/api/clientes";
+import { getContactos } from "../services/api/contactos";
 import { getProductos } from "../services/api/productos";
 import {
-  cancelarPedidoVenta,
-  getPedidoVenta,
-  getPedidosVentas,
-  updatePedidoVenta,
-} from "../services/api/pedidosVentas";
+  getPedidoCompra,
+  getPedidosCompras,
+  updatePedidoCompra,
+} from "../services/api/pedidosCompras";
 
-export default function PedidosVentasListado() {
+export default function PedidosComprasListado() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const pedidoParam = searchParams.get("pedido");
   const [estado, setEstado] = useState("");
-  const [cliente, setCliente] = useState("");
+  const [proveedor, setProveedor] = useState("");
   const [pedidos, setPedidos] = useState([]);
   const [useFiltro, setUseFiltro] = useState(false);
-  const [clientes, setClientes] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [productos, setProductos] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,22 +26,13 @@ export default function PedidosVentasListado() {
   const [selectedPedido, setSelectedPedido] = useState(null);
   const [modalEstado, setModalEstado] = useState("");
   const [modalDetalles, setModalDetalles] = useState([]);
-  const [modalDireccion, setModalDireccion] = useState("");
-  const [modalAclaraciones, setModalAclaraciones] = useState("");
-  const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [cancelModalMotivo, setCancelModalMotivo] = useState("");
-  const [cancelModalError, setCancelModalError] = useState("");
-  const [cancelPedidoId, setCancelPedidoId] = useState(null);
-  const [cancelMotivo, setCancelMotivo] = useState("");
-  const [cancelError, setCancelError] = useState("");
-  const [cancelOk, setCancelOk] = useState("");
-  const [isCanceling, setIsCanceling] = useState(false);
+  const [modalObservaciones, setModalObservaciones] = useState("");
 
   const loadPedidos = async () => {
     setError("");
     try {
       setIsLoading(true);
-      const data = await getPedidosVentas();
+      const data = await getPedidosCompras();
       setPedidos(data || []);
     } catch (err) {
       setError(err?.message || "No se pudieron cargar los pedidos.");
@@ -57,11 +45,11 @@ export default function PedidosVentasListado() {
     loadPedidos();
     const loadExtras = async () => {
       try {
-        const [clientesData, productosData] = await Promise.all([
-          getClientes(),
+        const [proveedoresData, productosData] = await Promise.all([
+          getContactos({ tipo: "proveedor" }),
           getProductos(),
         ]);
-        setClientes(clientesData || []);
+        setProveedores(proveedoresData || []);
         setProductos(productosData || []);
       } catch (err) {
         setError(err?.message || "No se pudieron cargar los datos.");
@@ -70,17 +58,12 @@ export default function PedidosVentasListado() {
     loadExtras();
   }, []);
 
-  useEffect(() => {
-    if (!pedidoParam) return;
-    handleVer(pedidoParam);
-  }, [pedidoParam]);
-
-  const clientesById = useMemo(() => {
-    return clientes.reduce((acc, current) => {
+  const proveedoresById = useMemo(() => {
+    return proveedores.reduce((acc, current) => {
       acc[String(current.id)] = current;
       return acc;
     }, {});
-  }, [clientes]);
+  }, [proveedores]);
 
   const productosById = useMemo(() => {
     return productos.reduce((acc, current) => {
@@ -89,6 +72,33 @@ export default function PedidosVentasListado() {
     }, {});
   }, [productos]);
 
+  const formatArs = (value) => {
+    if (value === null || value === undefined || value === "") return "-";
+    const number = Number(value);
+    if (Number.isNaN(number)) return "-";
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+    }).format(number);
+  };
+
+  const filteredPedidos = useMemo(() => {
+    if (!useFiltro) return pedidos;
+    const estadoFiltro = estado.trim().toLowerCase();
+    const proveedorFiltro = proveedor.trim().toLowerCase();
+    return pedidos.filter((pedido) => {
+      const matchEstado = estadoFiltro
+        ? pedido.estado?.toLowerCase() === estadoFiltro
+        : true;
+      const nombreProveedor =
+        proveedoresById[String(pedido.proveedor)]?.nombre || "";
+      const matchProveedor = proveedorFiltro
+        ? nombreProveedor.toLowerCase().includes(proveedorFiltro)
+        : true;
+      return matchEstado && matchProveedor;
+    });
+  }, [useFiltro, pedidos, estado, proveedor, proveedoresById]);
+
   const handleBuscar = (event) => {
     event.preventDefault();
     setUseFiltro(true);
@@ -96,43 +106,18 @@ export default function PedidosVentasListado() {
 
   const handleLimpiar = () => {
     setEstado("");
-    setCliente("");
+    setProveedor("");
     setUseFiltro(false);
   };
-
-  const handleCancelar = (pedidoId) => {
-    setCancelPedidoId(pedidoId);
-    setCancelMotivo("");
-    setCancelError("");
-    setCancelOk("");
-  };
-
-  const filteredPedidos = useMemo(() => {
-    if (!useFiltro) return pedidos;
-    const estadoFiltro = estado.trim().toLowerCase();
-    const clienteFiltro = cliente.trim().toLowerCase();
-    return pedidos.filter((pedido) => {
-      const matchEstado = estadoFiltro
-        ? pedido.estado?.toLowerCase() === estadoFiltro
-        : true;
-      const nombreCliente =
-        clientesById[String(pedido.cliente)]?.nombre || "";
-      const matchCliente = clienteFiltro
-        ? nombreCliente.toLowerCase().includes(clienteFiltro)
-        : true;
-      return matchEstado && matchCliente;
-    });
-  }, [useFiltro, pedidos, estado, cliente, clientesById]);
 
   const handleVer = async (pedidoId) => {
     setModalError("");
     setModalOk("");
     try {
-      const data = await getPedidoVenta(pedidoId);
+      const data = await getPedidoCompra(pedidoId);
       setSelectedPedido(data);
       setModalEstado(data.estado || "");
-      setModalDireccion(data.direccion_entrega || "");
-      setModalAclaraciones(data.aclaraciones || "");
+      setModalObservaciones(data.observaciones || "");
       const detallesFormateados = (data.detalles || []).map((detalle) => ({
         id: detalle.id,
         producto: String(detalle.producto),
@@ -147,7 +132,7 @@ export default function PedidosVentasListado() {
   };
 
   useEffect(() => {
-    if (isModalOpen || cancelPedidoId !== null) {
+    if (isModalOpen) {
       const previousOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       return () => {
@@ -162,37 +147,7 @@ export default function PedidosVentasListado() {
     setSelectedPedido(null);
     setModalDetalles([]);
     setModalEstado("");
-    setModalDireccion("");
-    setModalAclaraciones("");
-    setCancelModalOpen(false);
-    setCancelModalMotivo("");
-    setCancelModalError("");
-  };
-
-  const handleCancelClose = () => {
-    setCancelPedidoId(null);
-    setCancelMotivo("");
-    setCancelError("");
-  };
-
-  const handleConfirmCancel = async () => {
-    if (!cancelPedidoId) return;
-    if (!cancelMotivo.trim()) {
-      setCancelError("Ingresa un motivo de cancelacion.");
-      return;
-    }
-    try {
-      setIsCanceling(true);
-      const response = await cancelarPedidoVenta(cancelPedidoId, cancelMotivo.trim());
-      setCancelOk(response?.status || "Pedido cancelado.");
-      await loadPedidos();
-      setCancelPedidoId(null);
-      setCancelMotivo("");
-    } catch (err) {
-      setCancelError(err?.message || "No se pudo cancelar el pedido.");
-    } finally {
-      setIsCanceling(false);
-    }
+    setModalObservaciones("");
   };
 
   const handleDetalleChange = (index, field, value) => {
@@ -201,35 +156,11 @@ export default function PedidosVentasListado() {
     );
   };
 
-  const getDefaultPrecio = (producto, clienteData) => {
-    if (!producto) return "";
-    const categoria = clienteData?.categoria;
-    if (categoria === "Minorista") {
-      if (
-        producto.es_oferta &&
-        producto.precio_oferta !== null &&
-        producto.precio_oferta !== undefined
-      ) {
-        return String(producto.precio_oferta);
-      }
-      return producto.precio_minorista !== undefined &&
-        producto.precio_minorista !== null
-        ? String(producto.precio_minorista)
-        : "";
-    }
-    if (categoria === "Mayorista") {
-      return producto.precio_mayorista !== undefined &&
-        producto.precio_mayorista !== null
-        ? String(producto.precio_mayorista)
-        : "";
-    }
-    return "";
-  };
-
   const handleDetalleProductoChange = (index, productoId) => {
-    const clienteData = clientesById[String(selectedPedido?.cliente)];
     const productoData = productosById[String(productoId)];
-    const precioDefault = getDefaultPrecio(productoData, clienteData);
+    const precioDefault = productoData?.precio_compra
+      ? String(productoData.precio_compra)
+      : "";
     setModalDetalles((prev) =>
       prev.map((item, i) =>
         i === index
@@ -269,16 +200,11 @@ export default function PedidosVentasListado() {
       setModalError("Completa producto, cantidad y precio unitario.");
       return;
     }
-    if (modalEstado === "cancelado") {
-      setCancelModalOpen(true);
-      return;
-    }
     try {
       setIsSaving(true);
-      await updatePedidoVenta(selectedPedido.id, {
+      await updatePedidoCompra(selectedPedido.id, {
         estado: modalEstado,
-        direccion_entrega: modalDireccion.trim() || undefined,
-        aclaraciones: modalAclaraciones.trim() || undefined,
+        observaciones: modalObservaciones.trim() || undefined,
         detalles,
       });
       setModalOk("Pedido actualizado.");
@@ -290,60 +216,31 @@ export default function PedidosVentasListado() {
     }
   };
 
-  const handleCancelModalConfirm = async () => {
-    if (!selectedPedido) return;
-    if (!cancelModalMotivo.trim()) {
-      setCancelModalError("Ingresa un motivo de cancelacion.");
-      return;
-    }
-    try {
-      setIsSaving(true);
-      await cancelarPedidoVenta(selectedPedido.id, cancelModalMotivo.trim());
-      setModalOk("Pedido cancelado.");
-      setCancelModalOpen(false);
-      await loadPedidos();
-    } catch (err) {
-      setCancelModalError(err?.message || "No se pudo cancelar el pedido.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleGenerarVenta = () => {
+  const handleGenerarCompra = () => {
     if (!selectedPedido) return;
     handleModalClose();
-    navigate(`/ventas?pedido=${selectedPedido.id}`);
-  };
-
-  const formatArs = (value) => {
-    if (value === null || value === undefined || value === "") return "-";
-    const number = Number(value);
-    if (Number.isNaN(number)) return "-";
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-    }).format(number);
+    navigate(`/compras?pedido=${selectedPedido.id}`);
   };
 
   return (
     <div className="mx-auto mt-2 w-full max-w-lg p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Pedidos de venta</h2>
+      <h2 className="text-xl font-semibold text-gray-800">Pedidos de compra</h2>
       <p className="mt-1 text-sm text-gray-600">
         Listado para buscar y gestionar pedidos.
       </p>
 
       <form
-        className="mt-4 grid grid-cols-2 gap-3 rounded-xl pedidos-shadow p-4 text-left"
+        className="mt-4 grid grid-cols-3 gap-3 rounded-xl pedidos-shadow p-4 text-left"
         onSubmit={handleBuscar}
       >
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-700">Cliente</label>
+        <div className="flex flex-col col-span-2">
+          <label className="text-sm font-medium text-gray-700">Proveedor</label>
           <input
             type="text"
             placeholder="Buscar por nombre"
             className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={cliente}
-            onChange={(event) => setCliente(event.target.value)}
+            value={proveedor}
+            onChange={(event) => setProveedor(event.target.value)}
           />
         </div>
         <div className="flex flex-col">
@@ -356,32 +253,36 @@ export default function PedidosVentasListado() {
             >
               <option value="">Todos</option>
               <option value="pendiente">Pendiente</option>
-              <option value="aceptado">Aceptado</option>
+              <option value="validado">Validado</option>
               <option value="cancelado">Cancelado</option>
-              <option value="completado">Completado</option>
+              <option value="recibido">Recibido</option>
             </select>
           </div>
         </div>
         <Button
           type="submit"
-          className="w-full rounded-xl px-3 col-span-2 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
         >
-          Buscar
+          Filtrar
         </Button>
         <Button
           type="button"
-          className="w-full rounded-xl px-3 col-span-2 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
           onClick={handleLimpiar}
         >
           Limpiar filtros
+        </Button>
+        <Button
+          type="button"
+          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+          onClick={loadPedidos}
+        >
+          Refrescar
         </Button>
       </form>
 
       {error ? (
         <p className="mt-3 text-sm text-red-600">{error}</p>
-      ) : null}
-      {cancelOk ? (
-        <p className="mt-3 text-sm text-green-700">{cancelOk}</p>
       ) : null}
 
       <div className="mt-4 space-y-3">
@@ -405,7 +306,7 @@ export default function PedidosVentasListado() {
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-700">
-              Cliente: {clientesById[String(pedido.cliente)]?.nombre || pedido.cliente}
+              Proveedor: {proveedoresById[String(pedido.proveedor)]?.nombre || pedido.proveedor}
             </p>
             <p className="text-sm text-gray-700">
               Fecha: {pedido.fecha_pedido}
@@ -417,14 +318,6 @@ export default function PedidosVentasListado() {
               <Button
                 type="button"
                 className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-                onClick={() => handleCancelar(pedido.id)}
-                disabled={pedido.estado !== "pendiente"}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
                 onClick={() => handleVer(pedido.id)}
               >
                 Ver
@@ -433,6 +326,7 @@ export default function PedidosVentasListado() {
           </div>
         ))}
       </div>
+
       {isModalOpen && selectedPedido ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl bg-white p-4 text-left shadow-xl">
@@ -447,7 +341,7 @@ export default function PedidosVentasListado() {
               Pedido #{selectedPedido.id}
             </h3>
             <p className="text-sm text-gray-600">
-              Cliente: {clientesById[String(selectedPedido.cliente)]?.nombre || selectedPedido.cliente}
+              Proveedor: {proveedoresById[String(selectedPedido.proveedor)]?.nombre || selectedPedido.proveedor}
             </p>
 
             {modalError ? (
@@ -466,27 +360,20 @@ export default function PedidosVentasListado() {
                   onChange={(event) => setModalEstado(event.target.value)}
                 >
                   <option value="pendiente">Pendiente</option>
-                  <option value="aceptado">Aceptado</option>
+                  <option value="validado">Validado</option>
                   <option value="cancelado">Cancelado</option>
+                  <option value="recibido">Recibido</option>
                 </select>
               </div>
             </div>
+
             <div className="mt-3">
-              <label className="text-sm font-medium text-gray-700">Direccion de entrega</label>
-              <input
-                type="text"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
-                value={modalDireccion}
-                onChange={(event) => setModalDireccion(event.target.value)}
-              />
-            </div>
-            <div className="mt-3">
-              <label className="text-sm font-medium text-gray-700">Aclaraciones</label>
+              <label className="text-sm font-medium text-gray-700">Observaciones</label>
               <textarea
                 rows={3}
                 className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
-                value={modalAclaraciones}
-                onChange={(event) => setModalAclaraciones(event.target.value)}
+                value={modalObservaciones}
+                onChange={(event) => setModalObservaciones(event.target.value)}
               />
             </div>
 
@@ -581,94 +468,9 @@ export default function PedidosVentasListado() {
               <Button
                 type="button"
                 className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
-                onClick={handleGenerarVenta}
+                onClick={handleGenerarCompra}
               >
-                Generar venta
-              </Button>
-            </div>
-            {cancelModalOpen ? (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-sm font-medium text-red-700">
-                  Motivo de cancelacion
-                </p>
-                {cancelModalError ? (
-                  <p className="mt-1 text-sm text-red-600">{cancelModalError}</p>
-                ) : null}
-                <textarea
-                  rows={3}
-                  className="mt-2 w-full rounded-lg border border-red-200 p-2 text-sm"
-                  value={cancelModalMotivo}
-                  onChange={(event) => setCancelModalMotivo(event.target.value)}
-                />
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    type="button"
-                    className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-red-700 neuro-shadow-button bg-red-100"
-                    onClick={handleCancelModalConfirm}
-                    disabled={isSaving}
-                  >
-                    Confirmar cancelacion
-                  </Button>
-                  <Button
-                    type="button"
-                    className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
-                    onClick={() => {
-                      setCancelModalOpen(false);
-                      setCancelModalMotivo("");
-                      setCancelModalError("");
-                    }}
-                  >
-                    Volver
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      {cancelPedidoId !== null ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative w-full max-w-sm rounded-xl bg-white p-4 text-left shadow-xl">
-            <Button
-              type="button"
-              className="absolute right-3 top-3 rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-800"
-              onClick={handleCancelClose}
-            >
-              X
-            </Button>
-            <h3 className="text-lg font-semibold text-gray-800">
-              Cancelar pedido #{cancelPedidoId}
-            </h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Indica el motivo de cancelacion.
-            </p>
-            {cancelError ? (
-              <p className="mt-2 text-sm text-red-600">{cancelError}</p>
-            ) : null}
-            <div className="mt-3">
-              <label className="text-sm font-medium text-gray-700">Motivo</label>
-              <textarea
-                rows={3}
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-100"
-                value={cancelMotivo}
-                onChange={(event) => setCancelMotivo(event.target.value)}
-              />
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Button
-                type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
-                onClick={handleCancelClose}
-              >
-                Volver
-              </Button>
-              <Button
-                type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
-                onClick={handleConfirmCancel}
-                disabled={isCanceling}
-              >
-                {isCanceling ? "Cancelando..." : "Confirmar"}
+                Generar compra
               </Button>
             </div>
           </div>
@@ -677,6 +479,4 @@ export default function PedidosVentasListado() {
     </div>
   );
 }
-
-
 

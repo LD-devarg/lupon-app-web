@@ -168,7 +168,7 @@ export default function VentasListado() {
   };
 
   const handleGenerarCobro = (ventaId) => {
-    navigate(`/cobros?venta=${ventaId}`);
+    navigate(`/caja?tipo=cobro&vista=nuevo&venta=${ventaId}`);
   };
 
   const getEstadoEntregaClass = (estadoEntregaValue) => {
@@ -272,7 +272,7 @@ export default function VentasListado() {
           <p className="text-sm text-gray-600">Cargando ventas...</p>
         ) : null}
         {!isLoading && filteredVentas.length === 0 ? (
-          <p className="text-sm text-gray-600">No hay ventas para mostrar.</p>
+          <p className="text-sm text-gray-600">No hay registros para mostrar.</p>
         ) : null}
         {filteredVentas.map((venta) => (
           <div
@@ -494,5 +494,6 @@ export default function VentasListado() {
     </div>
   );
 }
+
 
 

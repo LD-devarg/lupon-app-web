@@ -2,12 +2,12 @@ import { useNavigate } from "react-router-dom";
 import Button from "../ui/Button";
 
 const LINKS = [
-  { label: "Ventas", path: "/ventas" },
-  { label: "Ventas (Listado)", path: "/ventas/listado" },
-  { label: "Cobros", path: "/cobros" },
-  { label: "Cobros (Listado)", path: "/cobros/listado" },
-  { label: "Pedidos de Venta", path: "/pedidos-ventas" },
-  { label: "Pedidos (Listado)", path: "/pedidos-ventas/listado" },
+  { label: "Ventas", path: "/ventas/listado" },
+  { label: "Pedidos de Venta", path: "/pedidos-ventas/listado" },
+  { label: "Pedidos de Compra", path: "/pedidos-compras/listado" },
+  { label: "Compras", path: "/compras/listado" },
+  { label: "Caja", path: "/caja" },
+  { label: "Notas de credito", path: "/notas-credito/listado" },
   { label: "Contactos", path: "/contactos" },
   { label: "Productos", path: "/productos" },
 ];

@@ -1,11 +1,15 @@
 from django.utils import timezone
 from rest_framework import viewsets
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.filters import OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from django.db.models import Sum, Count, Max, Q
+from datetime import datetime, timedelta
 from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle, NotasCredito, NotasCreditoDetalle
 from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer, CobrosSerializer, CobrosDetalleSerializer, PedidosComprasSerializer, PedidosComprasDetalleSerializer, CancelarVentaSerializer, ComprasSerializer, ComprasDetalleSerializer, CambiarEstadoCompraSerializer, CancelarCompraSerializer, PagosSerializer, PagosDetalleSerializer, NotasCreditoSerializer
 from .domain.logica import calcular_precios_producto, calcular_subtotal
@@ -13,6 +17,7 @@ from .domain.validaciones_ventas import validar_cambio_estado_venta, validar_cam
 from .domain.validaciones_usuarios import validar_cambio_estado_usuario, validar_cambio_contrasena, validar_cambio_email
 from .domain.validaciones_compras import validar_cambio_estado_compra, validar_modificacion_pedido_compra
 from .servicios.automatizaciones import completar_pedido_venta_al_entregar, cancelar_compra, recalcular_estado_pago, recalcular_estado_venta, recalcular_precios_producto, cancelar_venta_domain
+from decimal import Decimal
 # ============================================================
 # ViewSets
 # ============================================================
@@ -22,6 +27,11 @@ from .servicios.automatizaciones import completar_pedido_venta_al_entregar, canc
 class UsuariosViewSet(viewsets.ModelViewSet):
     serializer_class = UsuariosSerializer
     queryset = Usuarios.objects.all()
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [AllowAny()]
+        return super().get_permissions()
 
     # ============================
     # Cambiar estado del usuario
@@ -678,3 +688,245 @@ class NotasCreditoViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         return Response({"error": "No se permite modificar notas de crédito"}, status=405)
+
+class DashboardView(APIView):
+    def get(self, request):
+        params = request.query_params
+        fecha_desde = params.get("fecha_desde")
+        fecha_hasta = params.get("fecha_hasta")
+        cliente = params.get("cliente")
+        proveedor = params.get("proveedor")
+        forma_pago = params.get("forma_pago")
+        estado_cobro = params.get("estado_cobro")
+        estado_pago = params.get("estado_pago")
+        medio_pago = params.get("medio_pago")
+
+        def parse_date(value):
+            if not value:
+                return None
+            try:
+                return datetime.strptime(value, "%Y-%m-%d").date()
+            except ValueError:
+                raise ValidationError("Formato de fecha invalido. Usa YYYY-MM-DD.")
+
+        fecha_desde_date = parse_date(fecha_desde)
+        fecha_hasta_date = parse_date(fecha_hasta)
+
+        def apply_date_range(qs, field):
+            if fecha_desde_date:
+                qs = qs.filter(**{f"{field}__gte": fecha_desde_date})
+            if fecha_hasta_date:
+                qs = qs.filter(**{f"{field}__lte": fecha_hasta_date})
+            return qs
+
+        ventas_qs = apply_date_range(Ventas.objects.all(), "fecha_venta")
+        if cliente:
+            ventas_qs = ventas_qs.filter(cliente_id=cliente)
+        if forma_pago:
+            ventas_qs = ventas_qs.filter(forma_pago=forma_pago)
+        if estado_cobro:
+            ventas_qs = ventas_qs.filter(estado_cobro=estado_cobro)
+
+        compras_qs = apply_date_range(Compras.objects.all(), "fecha_compra")
+        if proveedor:
+            compras_qs = compras_qs.filter(proveedor_id=proveedor)
+        if forma_pago:
+            compras_qs = compras_qs.filter(forma_pago=forma_pago)
+        if estado_pago:
+            compras_qs = compras_qs.filter(estado_pago=estado_pago)
+
+        cobros_qs = apply_date_range(Cobros.objects.all(), "fecha_cobro")
+        if cliente:
+            cobros_qs = cobros_qs.filter(cliente_id=cliente)
+        if medio_pago:
+            cobros_qs = cobros_qs.filter(medio_pago=medio_pago)
+
+        pagos_qs = apply_date_range(Pagos.objects.all(), "fecha_pago")
+        if proveedor:
+            pagos_qs = pagos_qs.filter(proveedor_id=proveedor)
+        if medio_pago:
+            pagos_qs = pagos_qs.filter(medio_pago=medio_pago)
+
+        ventas_validas = ventas_qs.exclude(estado_venta="cancelada")
+        compras_validas = compras_qs.exclude(estado_compra="cancelada")
+
+        ventas_totales = ventas_validas.aggregate(total=Sum("total")).get("total") or Decimal("0")
+        compras_totales = compras_validas.aggregate(total=Sum("total")).get("total") or Decimal("0")
+        ganancia_bruta = ventas_totales - compras_totales
+        margen_bruto = (
+            (ganancia_bruta / ventas_totales) if ventas_totales else Decimal("0")
+        )
+
+        ventas_cobradas = (
+            ventas_validas.filter(estado_cobro="cobrado").aggregate(total=Sum("total")).get("total")
+            or Decimal("0")
+        )
+        ventas_parciales = (
+            ventas_validas.filter(estado_cobro="parcial").aggregate(total=Sum("total")).get("total")
+            or Decimal("0")
+        )
+        ventas_pendientes = (
+            ventas_validas.filter(estado_cobro="pendiente").aggregate(total=Sum("total")).get("total")
+            or Decimal("0")
+        )
+
+        compras_pagadas = (
+            compras_validas.filter(estado_pago="pagado").aggregate(total=Sum("total")).get("total")
+            or Decimal("0")
+        )
+        compras_parciales = (
+            compras_validas.filter(estado_pago="parcial").aggregate(total=Sum("total")).get("total")
+            or Decimal("0")
+        )
+        compras_pendientes = (
+            compras_validas.filter(estado_pago="pendiente").aggregate(total=Sum("total")).get("total")
+            or Decimal("0")
+        )
+
+        ingresos_caja = cobros_qs.aggregate(total=Sum("monto")).get("total") or Decimal("0")
+        egresos_caja = pagos_qs.aggregate(total=Sum("monto")).get("total") or Decimal("0")
+        flujo_neto = ingresos_caja - egresos_caja
+
+        ingresos_efectivo = (
+            cobros_qs.filter(medio_pago="efectivo").aggregate(total=Sum("monto")).get("total")
+            or Decimal("0")
+        )
+        ingresos_transferencia = (
+            cobros_qs.filter(medio_pago="transferencia").aggregate(total=Sum("monto")).get("total")
+            or Decimal("0")
+        )
+
+        deuda_clientes = (
+            ventas_validas.filter(saldo_pendiente__gt=0).aggregate(total=Sum("saldo_pendiente")).get("total")
+            or Decimal("0")
+        )
+        deuda_proveedores = (
+            compras_validas.filter(saldo_pendiente__gt=0).aggregate(total=Sum("saldo_pendiente")).get("total")
+            or Decimal("0")
+        )
+
+        ventas_deuda_filter = Q(ventas__saldo_pendiente__gt=0) & ~Q(ventas__estado_venta="cancelada")
+        if fecha_desde_date:
+            ventas_deuda_filter &= Q(ventas__fecha_venta__gte=fecha_desde_date)
+        if fecha_hasta_date:
+            ventas_deuda_filter &= Q(ventas__fecha_venta__lte=fecha_hasta_date)
+
+        cobros_fecha_filter = Q()
+        if fecha_desde_date:
+            cobros_fecha_filter &= Q(cobros__fecha_cobro__gte=fecha_desde_date)
+        if fecha_hasta_date:
+            cobros_fecha_filter &= Q(cobros__fecha_cobro__lte=fecha_hasta_date)
+
+        clientes_qs = Contactos.objects.filter(tipo="cliente", saldo_contacto__gt=0)
+        if cliente:
+            clientes_qs = clientes_qs.filter(id=cliente)
+
+        clientes_qs = clientes_qs.annotate(
+            ventas_pendientes=Count("ventas", filter=ventas_deuda_filter, distinct=True),
+            ultimo_cobro=Max("cobros__fecha_cobro", filter=cobros_fecha_filter),
+        ).order_by("-saldo_contacto", "nombre")
+
+        clientes_con_deuda = [
+            {
+                "id": cliente_item.id,
+                "nombre": cliente_item.nombre,
+                "deuda": str(cliente_item.saldo_contacto),
+                "ventas_pendientes": cliente_item.ventas_pendientes,
+                "ultimo_cobro": cliente_item.ultimo_cobro,
+            }
+            for cliente_item in clientes_qs
+        ]
+
+        compras_pendientes_qs = compras_validas.filter(saldo_pendiente__gt=0).select_related("proveedor")
+        compras_pendientes_list = [
+            {
+                "id": compra.id,
+                "proveedor": compra.proveedor.nombre,
+                "numero_documento": compra.numero_documento,
+                "fecha_compra": compra.fecha_compra,
+                "saldo_pendiente": str(compra.saldo_pendiente),
+                "estado_pago": compra.estado_pago,
+            }
+            for compra in compras_pendientes_qs
+        ]
+
+        hoy = timezone.localdate()
+        ventas_vencimientos = ventas_validas.filter(
+            saldo_pendiente__gt=0, vencimiento__isnull=False
+        )
+        if cliente:
+            ventas_vencimientos = ventas_vencimientos.filter(cliente_id=cliente)
+        if fecha_desde_date:
+            ventas_vencimientos = ventas_vencimientos.filter(fecha_venta__gte=fecha_desde_date)
+        if fecha_hasta_date:
+            ventas_vencimientos = ventas_vencimientos.filter(fecha_venta__lte=fecha_hasta_date)
+
+        def resumen_vencimientos(qs):
+            data = qs.aggregate(
+                cantidad=Count("id"),
+                saldo=Sum("saldo_pendiente"),
+            )
+            return {
+                "cantidad": data.get("cantidad") or 0,
+                "saldo": str(data.get("saldo") or Decimal("0")),
+            }
+
+        documentos_por_vencer = {
+            "hoy": resumen_vencimientos(ventas_vencimientos.filter(vencimiento=hoy)),
+            "proximos_7_dias": resumen_vencimientos(
+                ventas_vencimientos.filter(vencimiento__gt=hoy, vencimiento__lte=hoy + timedelta(days=7))
+            ),
+            "proximos_30_dias": resumen_vencimientos(
+                ventas_vencimientos.filter(vencimiento__gt=hoy + timedelta(days=7), vencimiento__lte=hoy + timedelta(days=30))
+            ),
+        }
+
+        documentos_vencidos = resumen_vencimientos(ventas_vencimientos.filter(vencimiento__lt=hoy))
+
+        response = {
+            "filters": {
+                "fecha_desde": fecha_desde_date,
+                "fecha_hasta": fecha_hasta_date,
+                "cliente": cliente,
+                "proveedor": proveedor,
+                "forma_pago": forma_pago,
+                "estado_cobro": estado_cobro,
+                "estado_pago": estado_pago,
+                "medio_pago": medio_pago,
+            },
+            "cards": {
+                "ventas_totales": {
+                    "total": str(ventas_totales),
+                    "cobradas": str(ventas_cobradas),
+                    "parciales": str(ventas_parciales),
+                    "pendientes": str(ventas_pendientes),
+                },
+                "compras_totales": {
+                    "total": str(compras_totales),
+                    "pagadas": str(compras_pagadas),
+                    "parciales": str(compras_parciales),
+                    "pendientes": str(compras_pendientes),
+                },
+                "ganancia_bruta": str(ganancia_bruta),
+                "margen_bruto": str(margen_bruto),
+                "ingresos_caja": {
+                    "total": str(ingresos_caja),
+                    "por_medio_pago": {
+                        "efectivo": str(ingresos_efectivo),
+                        "transferencia": str(ingresos_transferencia),
+                    },
+                },
+                "egresos_caja": {
+                    "total": str(egresos_caja),
+                },
+                "flujo_neto": str(flujo_neto),
+                "deuda_clientes": str(deuda_clientes),
+                "deuda_proveedores": str(deuda_proveedores),
+            },
+            "clientes_con_deuda": clientes_con_deuda,
+            "compras_pendientes": compras_pendientes_list,
+            "documentos_por_vencer": documentos_por_vencer,
+            "documentos_vencidos": documentos_vencidos,
+        }
+
+        return Response(response)

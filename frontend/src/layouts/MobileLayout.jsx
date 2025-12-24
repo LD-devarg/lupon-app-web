@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import BottomNavbar from "../components/ui/BottomNavbar";
 import ModalAgregar from "../components/layout/ModalAgregar";
 import ModalGestion from "../components/layout/ModalGestion";
 import Logo from "../assets/logo-lupon.png";
 
 export default function MobileLayout({ children }) {
+  const location = useLocation();
+  const hideNav = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/register";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGestionOpen, setIsGestionOpen] = useState(false);
 
@@ -18,18 +21,25 @@ export default function MobileLayout({ children }) {
             {children}
         </main>
 
-        <BottomNavbar
-          onOpenModal={() => setIsModalOpen(true)}
-          onOpenGestion={() => setIsGestionOpen(true)}
-        />
-        <ModalAgregar
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-        />
-        <ModalGestion
-          isOpen={isGestionOpen}
-          onClose={() => setIsGestionOpen(false)}
-        />
+        {!hideNav ? (
+          <>
+            <BottomNavbar
+              onOpenModal={() => setIsModalOpen(true)}
+              onOpenGestion={() => setIsGestionOpen(true)}
+            />
+            <ModalAgregar
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+            />
+            <ModalGestion
+              isOpen={isGestionOpen}
+              onClose={() => setIsGestionOpen(false)}
+            />
+            <div className="fixed bottom-0 left-0 right-0 z-30 flex h-6 items-center justify-center bg-neutral-300 text-[10px] text-gray-600">
+              Desarrollado por LD.dev
+            </div>
+          </>
+        ) : null}
     </div>
   );
 }

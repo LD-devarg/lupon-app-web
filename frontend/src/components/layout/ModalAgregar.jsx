@@ -11,14 +11,29 @@ export default function ModalAgregar({ isOpen, onClose }) {
     navigate("/pedidos-ventas");
   };
 
+  const handleGoToPedidosCompras = () => {
+    onClose();
+    navigate("/pedidos-compras");
+  };
+
   const handleGoToVentas = () => {
     onClose();
     navigate("/ventas");
   };
 
+  const handleGoToCompras = () => {
+    onClose();
+    navigate("/compras");
+  };
+
+  const handleGoToNotasCredito = () => {
+    onClose();
+    navigate("/notas-credito");
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="relative w-full max-w-sm rounded-xl bg-neutral-300 p-4 shadow-xl grid gap-4 grid-cols-2 grid-rows-2">
+        <div className="relative w-full max-w-sm rounded-xl bg-neutral-300 p-4 shadow-xl grid gap-4 grid-cols-2 grid-rows-3">
             <Button
                 type="button"
                 className="absolute right-3 top-3 rounded-md px-2 py-1 text-sm text-white hover:bg-gray-100 hover:text-gray-800"
@@ -41,7 +56,7 @@ export default function ModalAgregar({ isOpen, onClose }) {
                 <Button
                   type="button"
                   className="w-full text-center p-4 neuro-shadow-div"
-                  onClick={handleGoToPedidosVentas}
+                  onClick={handleGoToPedidosCompras}
                   whileHover={{ scale: 1.1 }}
                 >
                   <p>Nuevo Pedido de Compra</p>
@@ -61,10 +76,20 @@ export default function ModalAgregar({ isOpen, onClose }) {
                 <Button
                   type="button"
                   className="w-full text-center p-4 neuro-shadow-div"
-                  onClick={handleGoToPedidosVentas}
+                  onClick={handleGoToCompras}
                   whileHover={{ scale: 1.1 }}
                 >
-                  <p>Nuevo Compra</p>
+                  <p>Nueva Compra</p>
+                </Button>
+            </div>
+            <div>
+                <Button
+                  type="button"
+                  className="w-full text-center p-4 neuro-shadow-div"
+                  onClick={handleGoToNotasCredito}
+                  whileHover={{ scale: 1.1 }}
+                >
+                  <p>Nueva Nota de Credito</p>
                 </Button>
             </div>
         </div>

@@ -220,7 +220,7 @@ export default function Productos() {
           <p className="text-sm text-gray-600">Cargando productos...</p>
         ) : null}
         {!isLoading && filteredProductos.length === 0 ? (
-          <p className="text-sm text-gray-600">No hay productos para mostrar.</p>
+          <p className="text-sm text-gray-600">No hay registros para mostrar.</p>
         ) : null}
         {filteredProductos.map((producto) => (
           <div
@@ -429,5 +429,6 @@ export default function Productos() {
     </div>
   );
 }
+
 
 

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from decimal import Decimal
 from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle, NotasCredito, NotasCreditoDetalle, NotasCreditoAplicacion
 from django.contrib.auth.models import User
 from rest_framework.exceptions import ValidationError
@@ -21,6 +22,7 @@ from django.db import transaction
 class UsuariosSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", required=False)
     password = serializers.CharField(write_only=True, required=False)
+    confirm_password = serializers.CharField(write_only=True, required=False)
     username = serializers.CharField(source="user.username", required=False)
 
     class Meta:
@@ -29,16 +31,18 @@ class UsuariosSerializer(serializers.ModelSerializer):
             "id",
             "username",
             "password",
+            "confirm_password",
             "email",
             "nombre_completo",
             "telefono",
             "es_admin",
         ]
-        read_only_fields = ["nombre_completo"]  # NO se modifica
+        read_only_fields = []  # nombre_completo solo se setea en create
 
     def create(self, validated_data):
         user_data = validated_data.pop("user", {})
         password = validated_data.pop("password", None)
+        validated_data.pop("confirm_password", None)
 
         user = User.objects.create(
             username=user_data.get("username"),
@@ -54,6 +58,7 @@ class UsuariosSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         # Extraer datos de user
         user_data = validated_data.pop("user", {})
+        validated_data.pop("confirm_password", None)
 
         user = instance.user
 
@@ -80,6 +85,55 @@ class UsuariosSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+    def validate(self, data):
+        user_data = data.get("user", {})
+        username = user_data.get("username")
+        email = user_data.get("email")
+        password = data.get("password")
+        confirm_password = data.get("confirm_password")
+        telefono = data.get("telefono")
+
+        if self.instance is None:
+            if not username:
+                raise ValidationError("Username es obligatorio.")
+            if not email:
+                raise ValidationError("Email es obligatorio.")
+            if not password:
+                raise ValidationError("Password es obligatorio.")
+            if not confirm_password:
+                raise ValidationError("Confirma el password.")
+            if not data.get("nombre_completo"):
+                raise ValidationError("Nombre completo es obligatorio.")
+
+        if username:
+            existing = User.objects.filter(username__iexact=username)
+            if self.instance:
+                existing = existing.exclude(id=self.instance.user_id)
+            if existing.exists():
+                raise ValidationError("Username ya existe.")
+
+        if email:
+            existing = User.objects.filter(email__iexact=email)
+            if self.instance:
+                existing = existing.exclude(id=self.instance.user_id)
+            if existing.exists():
+                raise ValidationError("Email ya existe.")
+
+        if password:
+            if len(password) < 8:
+                raise ValidationError("Password debe tener al menos 8 caracteres.")
+            if not confirm_password:
+                raise ValidationError("Confirma el password.")
+            if password != confirm_password:
+                raise ValidationError("Passwords no coinciden.")
+
+        if telefono:
+            telefono_str = str(telefono)
+            if not telefono_str.isdigit() or len(telefono_str) != 10:
+                raise ValidationError("Telefono debe tener 10 digitos.")
+
+        return data
 
 class ResetearContrasenaSerializer(serializers.Serializer):
     nueva_contrasena = serializers.CharField(required=True)
@@ -647,7 +701,8 @@ class NotasCreditoAplicacionSerializer(serializers.ModelSerializer):
         ]
 
 class NotasCreditoSerializer(serializers.ModelSerializer):
-    detalles = NotasCreditoDetalleSerializer(many=True)
+    monto = serializers.DecimalField(max_digits=12, decimal_places=2, write_only=True, required=True)
+    detalles = NotasCreditoDetalleSerializer(many=True, required=False)
     aplicaciones = NotasCreditoAplicacionSerializer(many=True, required=False)
     
     class Meta:
@@ -663,7 +718,8 @@ class NotasCreditoSerializer(serializers.ModelSerializer):
             'motivo',
             'total',
             'detalles',
-            'aplicaciones'
+            'aplicaciones',
+            'monto',
         ]
         read_only_fields = ['creado_en', 'actualizado_en', 'subtotal', 'total', 'estado']
     
@@ -673,9 +729,10 @@ class NotasCreditoSerializer(serializers.ModelSerializer):
             'tipo': validated_data.get('tipo'),
             'detalles': validated_data.get('detalles', []),
             'aplicaciones': validated_data.get('aplicaciones', []),
+            'monto': validated_data.get('monto'),
         })
         
-        
+        monto = validated_data.pop('monto', None)
         detalles_data = validated_data.pop('detalles', [])
         aplicaciones_data = validated_data.pop('aplicaciones', [])
         
@@ -687,9 +744,9 @@ class NotasCreditoSerializer(serializers.ModelSerializer):
                 **detalle_data
             )
         
-        subtotal = calcular_subtotal(nota_credito.detalles.all())
-        nota_credito.subtotal = subtotal
-        nota_credito.total = subtotal  # Asumiendo que no hay otros cargos/descuentos
+        total = Decimal(monto)
+        nota_credito.subtotal = total
+        nota_credito.total = total
         nota_credito.save(update_fields=['subtotal', 'total'])
         
         for aplicacion_data in aplicaciones_data:

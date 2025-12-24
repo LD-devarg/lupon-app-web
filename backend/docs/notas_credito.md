@@ -7,21 +7,24 @@ Documento para devolver/importes a favor de un contacto, aplicable a ventas o co
 ## Modelo
 - `id` (int)
 - `contacto` (id del cliente/proveedor segun tipo)
-- `tipo` (`venta` | `compra`) define a qué se puede aplicar
+- `tipo` (`venta` | `compra`) define a que se puede aplicar
 - `fecha_nota` (date, por defecto hoy)
 - `numero_documento` (string, opcional)
 - `estado` (`pendiente`, `aplicada`, `cancelada`); se marca `aplicada` al crear
 - `motivo` (string, opcional)
-- `subtotal`, `total` (decimales, solo lectura; suma de detalles)
-- `detalles` (lista: `producto`, `cantidad`, `precio_unitario`)
+- `monto` (decimal, requerido en create; write-only)
+- `subtotal`, `total` (decimales, solo lectura; se setean desde `monto`)
+- `detalles` (opcional: lista `producto`, `cantidad`, `precio_unitario`)
 - `aplicaciones` (lista: `{ venta | compra, monto_aplicado }`, segun tipo)
 - timestamps: `creado_en`, `actualizado_en`
 
 ### Reglas de validacion
-- Debe haber al menos un detalle y al menos una aplicacion.
-- Cada detalle requiere `cantidad` > 0 y `precio_unitario` > 0.
+- `monto` es obligatorio y debe ser > 0.
+- Detalles es opcional; si existe:
+  - `cantidad` > 0 y `precio_unitario` > 0.
+- Debe haber al menos una aplicacion.
 - Cada aplicacion requiere una sola referencia: venta O compra.
-- El `tipo` debe coincidir: `venta` solo aplica a ventas; `compra` solo a compras.
+- El `tipo` debe coincidir: `venta` solo aplica a ventas; `compra` solo aplica a compras.
 - `monto_aplicado` > 0 en cada aplicacion.
 
 ## Endpoints
@@ -77,6 +80,7 @@ Body ejemplo (tipo venta):
   "contacto": 3,
   "tipo": "venta",
   "motivo": "Devolucion",
+  "monto": "300.00",
   "detalles": [
     { "producto": 5, "cantidad": 2, "precio_unitario": "150.00" }
   ],
@@ -87,7 +91,7 @@ Body ejemplo (tipo venta):
 ```
 
 Comportamiento:
-- Calcula `subtotal/total` a partir de los detalles.
+- Usa `monto` para setear `subtotal/total`.
 - Aplica el monto a las ventas/compras indicadas: reduce `saldo_pendiente` y recalcula `estado_cobro/estado_venta` o `estado_pago` segun corresponda.
 - Ajusta `saldo_contacto` del contacto restando el total de la nota.
 - Marca la nota como `aplicada`.
@@ -97,5 +101,6 @@ Comportamiento:
 
 ## Reglas clave para el front
 - No enviar `subtotal`, `total` ni `estado`; los define el backend.
+- `monto` es obligatorio; `detalles` puede omitirse.
 - Asegurarse de enviar aplicaciones consistentes con el `tipo` y con montos > 0.
 - Mostrar la nota como no editable ni eliminable despues de creada.

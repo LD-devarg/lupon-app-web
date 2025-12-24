@@ -245,7 +245,7 @@ export default function Contactos() {
           <p className="text-sm text-gray-600">Cargando contactos...</p>
         ) : null}
         {!isLoading && filteredContactos.length === 0 ? (
-          <p className="text-sm text-gray-600">No hay contactos para mostrar.</p>
+          <p className="text-sm text-gray-600">No hay registros para mostrar.</p>
         ) : null}
         {filteredContactos.map((contacto) => (
           <div
@@ -452,5 +452,6 @@ export default function Contactos() {
     </div>
   );
 }
+
 
 

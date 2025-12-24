@@ -1,39 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
 import Button from "../components/ui/Button";
-import { getClientes } from "../services/api/clientes";
-import { getVentas } from "../services/api/ventas";
-import { addDetallesCobro, getCobros, getCobro } from "../services/api/cobros";
+import { getContactos } from "../services/api/contactos";
+import { getCompras } from "../services/api/compras";
+import { addDetallesPago, getPago, getPagos } from "../services/api/pagos";
 
-export default function CobrosListado() {
-  const [cliente, setCliente] = useState("");
-  const [fechaCobro, setFechaCobro] = useState("");
+export default function PagosListado() {
+  const [proveedor, setProveedor] = useState("");
+  const [fechaPago, setFechaPago] = useState("");
   const [useFiltro, setUseFiltro] = useState(false);
-  const [cobros, setCobros] = useState([]);
-  const [clientes, setClientes] = useState([]);
-  const [ventas, setVentas] = useState([]);
+  const [pagos, setPagos] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
+  const [compras, setCompras] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalOk, setModalOk] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedCobro, setSelectedCobro] = useState(null);
+  const [selectedPago, setSelectedPago] = useState(null);
   const [detalles, setDetalles] = useState([]);
 
   const loadData = async () => {
     setError("");
     try {
       setIsLoading(true);
-      const [cobrosData, clientesData, ventasData] = await Promise.all([
-        getCobros(),
-        getClientes(),
-        getVentas(),
+      const [pagosData, proveedoresData, comprasData] = await Promise.all([
+        getPagos(),
+        getContactos({ tipo: "proveedor" }),
+        getCompras(),
       ]);
-      setCobros(cobrosData || []);
-      setClientes(clientesData || []);
-      setVentas(ventasData || []);
+      setPagos(pagosData || []);
+      setProveedores(proveedoresData || []);
+      setCompras(comprasData || []);
     } catch (err) {
-      setError(err?.message || "No se pudieron cargar los cobros.");
+      setError(err?.message || "No se pudieron cargar los pagos.");
     } finally {
       setIsLoading(false);
     }
@@ -54,31 +54,31 @@ export default function CobrosListado() {
     return undefined;
   }, [isModalOpen]);
 
-  const clientesById = useMemo(() => {
-    return clientes.reduce((acc, current) => {
+  const proveedoresById = useMemo(() => {
+    return proveedores.reduce((acc, current) => {
       acc[String(current.id)] = current;
       return acc;
     }, {});
-  }, [clientes]);
+  }, [proveedores]);
 
-  const ventasById = useMemo(() => {
-    return ventas.reduce((acc, current) => {
+  const comprasById = useMemo(() => {
+    return compras.reduce((acc, current) => {
       acc[String(current.id)] = current;
       return acc;
     }, {});
-  }, [ventas]);
+  }, [compras]);
 
-  const ventasDisponiblesCliente = useMemo(() => {
-    if (!selectedCobro?.cliente) return [];
-    return ventas.filter((venta) => {
-      const saldo = Number(venta.saldo_pendiente || 0);
+  const comprasDisponiblesProveedor = useMemo(() => {
+    if (!selectedPago?.proveedor) return [];
+    return compras.filter((compra) => {
+      const saldo = Number(compra.saldo_pendiente || 0);
       return (
         saldo > 0 &&
-        venta.estado_entrega !== "cancelada" &&
-        String(venta.cliente) === String(selectedCobro.cliente)
+        compra.estado_compra !== "cancelada" &&
+        String(compra.proveedor) === String(selectedPago.proveedor)
       );
     });
-  }, [ventas, selectedCobro]);
+  }, [compras, selectedPago]);
 
   const formatArs = (value) => {
     if (value === null || value === undefined || value === "") return "-";
@@ -95,22 +95,22 @@ export default function CobrosListado() {
     return value.charAt(0).toUpperCase() + value.slice(1);
   };
 
-  const filteredCobros = useMemo(() => {
-    if (!useFiltro) return cobros;
-    const clienteFiltro = cliente.trim().toLowerCase();
-    const fechaFiltro = fechaCobro.trim();
-    return cobros.filter((cobro) => {
-      const nombreCliente =
-        clientesById[String(cobro.cliente)]?.nombre || "";
-      const matchCliente = clienteFiltro
-        ? nombreCliente.toLowerCase().includes(clienteFiltro)
+  const filteredPagos = useMemo(() => {
+    if (!useFiltro) return pagos;
+    const proveedorFiltro = proveedor.trim().toLowerCase();
+    const fechaFiltro = fechaPago.trim();
+    return pagos.filter((pago) => {
+      const nombreProveedor =
+        proveedoresById[String(pago.proveedor)]?.nombre || "";
+      const matchProveedor = proveedorFiltro
+        ? nombreProveedor.toLowerCase().includes(proveedorFiltro)
         : true;
       const matchFecha = fechaFiltro
-        ? cobro.fecha_cobro === fechaFiltro
+        ? pago.fecha_pago === fechaFiltro
         : true;
-      return matchCliente && matchFecha;
+      return matchProveedor && matchFecha;
     });
-  }, [useFiltro, cobros, cliente, fechaCobro, clientesById]);
+  }, [useFiltro, pagos, proveedor, fechaPago, proveedoresById]);
 
   const handleBuscar = (event) => {
     event.preventDefault();
@@ -118,27 +118,27 @@ export default function CobrosListado() {
   };
 
   const handleLimpiar = () => {
-    setCliente("");
-    setFechaCobro("");
+    setProveedor("");
+    setFechaPago("");
     setUseFiltro(false);
   };
 
-  const handleVer = async (cobroId) => {
+  const handleVer = async (pagoId) => {
     setModalError("");
     setModalOk("");
     try {
-      const data = await getCobro(cobroId);
-      setSelectedCobro(data);
+      const data = await getPago(pagoId);
+      setSelectedPago(data);
       setDetalles([]);
       setIsModalOpen(true);
     } catch (err) {
-      setError(err?.message || "No se pudo cargar el cobro.");
+      setError(err?.message || "No se pudo cargar el pago.");
     }
   };
 
   const handleModalClose = () => {
     setIsModalOpen(false);
-    setSelectedCobro(null);
+    setSelectedPago(null);
     setDetalles([]);
     setModalError("");
   };
@@ -146,7 +146,7 @@ export default function CobrosListado() {
   const handleAddDetalle = () => {
     setDetalles((prev) => [
       ...prev,
-      { venta: "", montoAplicado: "" },
+      { compra: "", montoAplicado: "" },
     ]);
   };
 
@@ -170,28 +170,28 @@ export default function CobrosListado() {
   }, [detalles]);
 
   const handleAplicarSaldo = async () => {
-    if (!selectedCobro) return;
+    if (!selectedPago) return;
     setModalError("");
     setModalOk("");
     if (detalles.length === 0) {
-      setModalError("Agrega al menos una venta.");
+      setModalError("Agrega al menos una compra.");
       return;
     }
     const payload = detalles.map((item) => ({
-      venta: Number(item.venta),
+      compra: Number(item.compra),
       monto_aplicado: item.montoAplicado,
     }));
     const hayVacios = payload.some(
       (detalle) =>
-        !detalle.venta || !detalle.monto_aplicado || Number(detalle.monto_aplicado) <= 0
+        !detalle.compra || !detalle.monto_aplicado || Number(detalle.monto_aplicado) <= 0
     );
     if (hayVacios) {
-      setModalError("Completa venta y monto aplicado.");
+      setModalError("Completa compra y monto aplicado.");
       return;
     }
     try {
       setIsSaving(true);
-      await addDetallesCobro(selectedCobro.id, payload);
+      await addDetallesPago(selectedPago.id, payload);
       setModalOk("Saldo aplicado correctamente.");
       await loadData();
       setDetalles([]);
@@ -204,9 +204,9 @@ export default function CobrosListado() {
 
   return (
     <div className="mx-auto mt-2 w-full max-w-lg p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Cobros</h2>
+      <h2 className="text-xl font-semibold text-gray-800">Pagos</h2>
       <p className="mt-1 text-sm text-gray-600">
-        Listado de cobros y aplicacion de saldo disponible.
+        Listado de pagos y aplicacion de saldo disponible.
       </p>
 
       <form
@@ -214,13 +214,13 @@ export default function CobrosListado() {
         onSubmit={handleBuscar}
       >
         <div className="flex flex-col col-span-2">
-          <label className="text-sm font-medium text-gray-700">Cliente</label>
+          <label className="text-sm font-medium text-gray-700">Proveedor</label>
           <input
             type="text"
             placeholder="Buscar por nombre"
             className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={cliente}
-            onChange={(event) => setCliente(event.target.value)}
+            value={proveedor}
+            onChange={(event) => setProveedor(event.target.value)}
           />
         </div>
         <div className="flex flex-col">
@@ -228,8 +228,8 @@ export default function CobrosListado() {
           <input
             type="date"
             className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={fechaCobro}
-            onChange={(event) => setFechaCobro(event.target.value)}
+            value={fechaPago}
+            onChange={(event) => setFechaPago(event.target.value)}
           />
         </div>
         <Button
@@ -260,42 +260,42 @@ export default function CobrosListado() {
 
       <div className="mt-4 space-y-3">
         {isLoading ? (
-          <p className="text-sm text-gray-600">Cargando cobros...</p>
+          <p className="text-sm text-gray-600">Cargando pagos...</p>
         ) : null}
-        {!isLoading && filteredCobros.length === 0 ? (
+        {!isLoading && filteredPagos.length === 0 ? (
           <p className="text-sm text-gray-600">No hay registros para mostrar.</p>
         ) : null}
-        {filteredCobros.map((cobro) => (
+        {filteredPagos.map((pago) => (
           <div
-            key={cobro.id}
+            key={pago.id}
             className="neuro-shadow-div p-3 text-left"
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-800">
-                Cobro #{cobro.id}
+                Pago #{pago.id}
               </span>
               <span className="text-xs rounded-full bg-neutral-300 px-2 py-1 text-gray-700">
-                {capitalize(cobro.medio_pago)}
+                {capitalize(pago.medio_pago)}
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-700">
-              Cliente: {clientesById[String(cobro.cliente)]?.nombre || cobro.cliente}
+              Proveedor: {proveedoresById[String(pago.proveedor)]?.nombre || pago.proveedor}
             </p>
             <p className="text-sm text-gray-700">
-              Fecha: {cobro.fecha_cobro}
+              Fecha: {pago.fecha_pago}
             </p>
             <p className="text-sm text-gray-700">
-              Monto: {formatArs(cobro.monto)}
+              Monto: {formatArs(pago.monto)}
             </p>
             <p className="text-sm text-gray-700">
-              Saldo disponible: {formatArs(cobro.saldo_disponible)}
+              Saldo disponible: {formatArs(pago.saldo_disponible)}
             </p>
             <div className="mt-3 flex gap-2">
               <Button
                 type="button"
                 className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-                onClick={() => handleVer(cobro.id)}
-                disabled={Number(cobro.saldo_disponible || 0) <= 0}
+                onClick={() => handleVer(pago.id)}
+                disabled={Number(pago.saldo_disponible || 0) <= 0}
               >
                 Aplicar saldo
               </Button>
@@ -304,7 +304,7 @@ export default function CobrosListado() {
         ))}
       </div>
 
-      {isModalOpen && selectedCobro ? (
+      {isModalOpen && selectedPago ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl bg-white p-4 text-left shadow-xl">
             <Button
@@ -315,13 +315,13 @@ export default function CobrosListado() {
               X
             </Button>
             <h3 className="text-lg font-semibold text-gray-800">
-              Cobro #{selectedCobro.id}
+              Pago #{selectedPago.id}
             </h3>
             <p className="text-sm text-gray-600">
-              Cliente: {clientesById[String(selectedCobro.cliente)]?.nombre || selectedCobro.cliente}
+              Proveedor: {proveedoresById[String(selectedPago.proveedor)]?.nombre || selectedPago.proveedor}
             </p>
             <p className="text-sm text-gray-600">
-              Saldo disponible: {formatArs(selectedCobro.saldo_disponible)}
+              Saldo disponible: {formatArs(selectedPago.saldo_disponible)}
             </p>
             {modalError ? (
               <p className="mt-2 text-sm text-red-600">{modalError}</p>
@@ -338,17 +338,17 @@ export default function CobrosListado() {
                   className="rounded-lg px-3 py-1 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
                   onClick={handleAddDetalle}
                 >
-                  Agregar venta
+                  Agregar compra
                 </Button>
               </div>
               {detalles.length === 0 ? (
-                <p className="text-sm text-gray-600">Agrega ventas para aplicar saldo.</p>
+                <p className="text-sm text-gray-600">Agrega compras para aplicar saldo.</p>
               ) : null}
               {detalles.map((detalle, index) => (
                 <div key={`detalle-${index}`} className="rounded-lg border border-gray-200 p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">
-                      Venta {index + 1}
+                      Compra {index + 1}
                     </span>
                     <Button
                       type="button"
@@ -360,27 +360,26 @@ export default function CobrosListado() {
                   </div>
                   <div className="mt-2 space-y-2">
                     <div className="flex flex-col">
-                      <label className="text-sm font-medium text-gray-700">Venta</label>
+                      <label className="text-sm font-medium text-gray-700">Compra</label>
                       <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-200">
                         <select
                           className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-                          value={detalle.venta}
+                          value={detalle.compra}
                           onChange={(event) =>
-                            handleDetalleChange(index, "venta", event.target.value)
+                            handleDetalleChange(index, "compra", event.target.value)
                           }
                         >
-                          <option value="">Seleccionar venta</option>
-                          {ventasDisponiblesCliente.map((venta) => (
-                            <option key={venta.id} value={venta.id}>
-                              Venta #{venta.id} - {venta.fecha_venta} -{" "}
-                              {clientesById[String(venta.cliente)]?.nombre || venta.cliente}
+                          <option value="">Seleccionar compra</option>
+                          {comprasDisponiblesProveedor.map((compra) => (
+                            <option key={compra.id} value={compra.id}>
+                              Compra #{compra.id} - {compra.fecha_compra}
                             </option>
                           ))}
                         </select>
                       </div>
-                      {detalle.venta ? (
+                      {detalle.compra ? (
                         <p className="mt-1 text-xs text-gray-600">
-                          Saldo pendiente: {formatArs(ventasById[String(detalle.venta)]?.saldo_pendiente)}
+                          Saldo pendiente: {formatArs(comprasById[String(detalle.compra)]?.saldo_pendiente)}
                         </p>
                       ) : null}
                     </div>
@@ -420,6 +419,4 @@ export default function CobrosListado() {
     </div>
   );
 }
-
-
 

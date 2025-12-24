@@ -16,6 +16,7 @@ from .views import (
     PagosViewSet,
     PagosDetalleViewSet,
     NotasCreditoViewSet,
+    DashboardView,
 )
 
 router = DefaultRouter()
@@ -54,6 +55,6 @@ router.register(r'pagos-detalle', PagosDetalleViewSet, basename='pagos-detalle')
 router.register(r'notas-credito', NotasCreditoViewSet, basename='notas-credito')
 
 urlpatterns = [
+    path('dashboard/', DashboardView.as_view()),
     path('', include(router.urls)),
 ]
-
