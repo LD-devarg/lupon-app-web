@@ -10,7 +10,14 @@ SECRET_KEY = 'django-insecure-ie3yr$c5@0_ldii218p2l93@ypin7rml9h&v)vsi7*s)&#*d%g
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
 allowed_hosts = os.getenv("ALLOWED_HOSTS", "")
-ALLOWED_HOSTS = [host.strip() for host in allowed_hosts.split(",") if host.strip()]
+if allowed_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts.split(",") if host.strip()]
+else:
+    ALLOWED_HOSTS = [
+        "localhost",
+        "127.0.0.1",
+        "lupon-app-web-production.up.railway.app",
+    ]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -44,11 +51,17 @@ if cors_origins:
 else:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",
+        "https://adaptable-balance-production.up.railway.app",
     ]
 
 csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 if csrf_origins:
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins.split(",") if origin.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost:5173",
+        "https://adaptable-balance-production.up.railway.app",
+    ]
 
 TEMPLATES = [
     {
