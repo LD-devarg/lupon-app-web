@@ -38,7 +38,7 @@ class Contactos(models.Model):
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     nombre = models.CharField(max_length=100)
     nombre_fantasia = models.CharField(max_length=100, blank=True)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, blank=True, null=True)
     telefono = models.CharField(max_length=10, blank=True)
     direccion = models.CharField(max_length=200, blank=True)
     forma_pago = models.CharField(max_length=50, choices=TIPO_CUENTA_CHOICES, blank=True)
