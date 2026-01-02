@@ -21,6 +21,19 @@
     color: #232323;
 }
 
+.modal-agregar-btn {
+    width: 100%;
+    min-height: 72px;
+    padding: 16px;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #232323;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .pedidos-shadow{
 
     border-radius: 16px; 
