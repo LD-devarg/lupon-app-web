@@ -8,17 +8,22 @@
 # El precio_mayorista es = precio_compra + (precio_compra * 0.10)  # 10% de margen
 # El precio_oferta es = precio_compra + (precio_compra * 0.12)  # 12% de margen
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING
 
 def calcular_precios_producto(precio_compra):
+    def redondear_a_500(precio):
+        return (precio / Decimal('500')).to_integral_value(rounding=ROUND_CEILING) * Decimal('500')
+
     precio_minorista = precio_compra * Decimal('1.15')
     precio_mayorista = precio_compra * Decimal('1.10')
+    precio_mayorista_exclusivo = precio_compra * Decimal('1.08')  # 8% de margen
     precio_oferta = precio_compra * Decimal('1.12')
     
     return {
-        'precio_minorista': round(precio_minorista, 2),
-        'precio_mayorista': round(precio_mayorista, 2),
-        'precio_oferta': round(precio_oferta, 2)
+        'precio_mayorista_exclusivo': redondear_a_500(precio_mayorista_exclusivo),
+        'precio_minorista': redondear_a_500(precio_minorista),
+        'precio_mayorista': redondear_a_500(precio_mayorista),
+        'precio_oferta': redondear_a_500(precio_oferta)
     }
 
 #============================================================

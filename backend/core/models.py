@@ -31,6 +31,7 @@ class Contactos(models.Model):
         ('cuenta corriente', 'Cuenta Corriente'),
     ]
     CATEGORIA_CHOICES = [
+        ('Mayorista Exclusivo', 'Mayorista Exclusivo'),
         ('Mayorista', 'Mayorista'),
         ('Minorista', 'Minorista'),
     ]
@@ -82,6 +83,7 @@ class Productos(models.Model):
     
     precio_minorista = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     precio_mayorista = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    precio_mayorista_exclusivo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     precio_oferta = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
