@@ -8,7 +8,7 @@ import {
 } from "../services/api/contactos";
 
 const TIPOS = ["cliente", "proveedor"];
-const CATEGORIAS = ["Mayorista", "Minorista"];
+const CATEGORIAS = ["Mayorista", "Mayorista Exclusivo", "Minorista"];
 const FORMAS_PAGO = ["contado", "cuenta corriente"];
 
 export default function Contactos() {
@@ -452,6 +452,5 @@ export default function Contactos() {
     </div>
   );
 }
-
 
 

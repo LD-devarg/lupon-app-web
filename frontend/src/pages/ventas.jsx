@@ -79,6 +79,18 @@ export default function Ventas() {
         ? String(producto.precio_minorista)
         : "";
     }
+    if (categoria === "Mayorista Exclusivo") {
+      if (
+        producto.precio_mayorista_exclusivo !== undefined &&
+        producto.precio_mayorista_exclusivo !== null
+      ) {
+        return String(producto.precio_mayorista_exclusivo);
+      }
+      return producto.precio_mayorista !== undefined &&
+        producto.precio_mayorista !== null
+        ? String(producto.precio_mayorista)
+        : "";
+    }
     if (categoria === "Mayorista") {
       return producto.precio_mayorista !== undefined &&
         producto.precio_mayorista !== null
