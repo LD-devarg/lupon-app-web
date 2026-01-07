@@ -116,8 +116,8 @@ export default function Contactos() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFormError("");
-    if (!form.tipo || !form.nombre || !form.email) {
-      setFormError("Completa tipo, nombre y email.");
+    if (!form.tipo || !form.nombre) {
+      setFormError("Completa tipo y nombre.");
       return;
     }
     try {
