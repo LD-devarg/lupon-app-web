@@ -16,6 +16,7 @@ export default function Ventas() {
   const [pedidoId, setPedidoId] = useState(pedidoParam || "");
   const [clienteId, setClienteId] = useState("");
   const [direccionEntrega, setDireccionEntrega] = useState("");
+  const [fechaEntrega, setFechaEntrega] = useState("");
   const [formaPago, setFormaPago] = useState("contado");
   const [costoEntrega, setCostoEntrega] = useState("");
   const [descuento, setDescuento] = useState("");
@@ -104,6 +105,7 @@ export default function Ventas() {
     setPedidoId(String(pedido.id));
     setClienteId(String(pedido.cliente));
     setDireccionEntrega(pedido.direccion_entrega || "");
+    setFechaEntrega("");
     const clienteData = clientesById[String(pedido.cliente)];
     const detallesFormateados = (pedido.detalles || []).map((detalle) => ({
       producto: String(detalle.producto),
@@ -154,6 +156,7 @@ export default function Ventas() {
       setPedidoId("");
       setClienteId("");
       setDireccionEntrega("");
+      setFechaEntrega("");
       setDetalles([]);
       return;
     }
@@ -233,6 +236,9 @@ export default function Ventas() {
       if (direccionEntrega.trim()) {
         payload.direccion_entrega = direccionEntrega.trim();
       }
+      if (fechaEntrega) {
+        payload.fecha_entrega = fechaEntrega;
+      }
       if (costoEntrega) {
         payload.costo_entrega = costoEntrega;
       }
@@ -242,6 +248,7 @@ export default function Ventas() {
       const response = await createVenta(payload);
       setSubmitOk(`Venta #${response?.id || ""} creada.`);
       setDetalles([]);
+      setFechaEntrega("");
     } catch (error) {
       setSubmitError(error?.message || "No se pudo crear la venta.");
     } finally {
@@ -315,6 +322,15 @@ export default function Ventas() {
             className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
             value={direccionEntrega}
             onChange={(event) => setDireccionEntrega(event.target.value)}
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-sm font-medium text-gray-700">Fecha de entrega</label>
+          <input
+            type="date"
+            className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
+            value={fechaEntrega}
+            onChange={(event) => setFechaEntrega(event.target.value)}
           />
         </div>
 

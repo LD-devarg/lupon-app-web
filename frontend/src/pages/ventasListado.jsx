@@ -186,6 +186,14 @@ export default function VentasListado() {
     return value.charAt(0).toUpperCase() + value.slice(1);
   };
 
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const raw = String(value).split("T")[0];
+    const [year, month, day] = raw.split("-");
+    if (!year || !month || !day) return value;
+    return `${day}/${month}/${year}`;
+  };
+
   const getFechaEntrega = (venta) => {
     return venta.fecha_reprogramada || venta.fecha_entrega || "";
   };
@@ -302,11 +310,16 @@ export default function VentasListado() {
               Cliente: {clientesById[String(venta.cliente)]?.nombre || venta.cliente}
             </p>
             <p className="text-sm text-gray-700">
-              Fecha: {venta.fecha_venta}
+              Fecha: {formatDate(venta.fecha_venta)}
             </p>
             <p className="text-sm text-gray-700">
-              Fecha entrega: {getFechaEntrega(venta) || "-"}
+              Fecha entrega: {formatDate(getFechaEntrega(venta))}
             </p>
+            {venta.fecha_reprogramada ? (
+              <p className="text-sm text-gray-700">
+                Fecha reprogramada: {formatDate(venta.fecha_reprogramada)}
+              </p>
+            ) : null}
             <p className="text-sm text-gray-700">
               Total: {formatArs(venta.total)}
             </p>

@@ -46,6 +46,13 @@ export default function Logistica() {
     return value.split("T")[0];
   };
 
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const [year, month, day] = value.split("-");
+    if (!year || !month || !day) return value;
+    return `${day}/${month}/${year}`;
+  };
+
   const getFechaEntrega = (venta) => {
     return normalizeDate(venta.fecha_reprogramada || venta.fecha_entrega || "");
   };
@@ -168,7 +175,7 @@ export default function Logistica() {
         {groupedVentas.map(([fecha, ventasGrupo]) => (
           <div key={fecha} className="space-y-3">
             <h3 className="text-sm font-semibold text-gray-800">
-              Fecha de entrega: {fecha}
+              Fecha de entrega: {fecha === "Sin fecha" ? fecha : formatDate(fecha)}
             </h3>
             {ventasGrupo.map((venta) => (
               <div key={venta.id} className="neuro-shadow-div p-3 text-left">
@@ -188,6 +195,17 @@ export default function Logistica() {
                 <p className="text-sm text-gray-700">
                   Direccion: {venta.direccion_entrega || "-"}
                 </p>
+                <p className="text-sm text-gray-700">
+                  Fecha: {formatDate(normalizeDate(venta.fecha_venta))}
+                </p>
+                <p className="text-sm text-gray-700">
+                  Fecha entrega: {formatDate(getFechaEntrega(venta))}
+                </p>
+                {venta.fecha_reprogramada ? (
+                  <p className="text-sm text-gray-700">
+                    Fecha reprogramada: {formatDate(normalizeDate(venta.fecha_reprogramada))}
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>
