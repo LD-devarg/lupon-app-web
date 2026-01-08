@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
 import { getClientes } from "../services/api/clientes";
 import { getProductos } from "../services/api/productos";
+import { API_BASE } from "../services/api/base";
 import { cambiarEstadoEntrega, cancelarVenta, getVenta, getVentas, reprogramarEntrega } from "../services/api/ventas";
 
 export default function VentasListado() {
   const navigate = useNavigate();
+  const documentosBase = API_BASE.replace(/\/api\/?$/, "");
   const [estadoEntrega, setEstadoEntrega] = useState("");
   const [cliente, setCliente] = useState("");
   const [ventas, setVentas] = useState([]);
@@ -99,6 +101,11 @@ export default function VentasListado() {
     } catch (err) {
       setError(err?.message || "No se pudo cargar la venta.");
     }
+  };
+
+  const handleVerPdf = (ventaId) => {
+    const url = `${documentosBase}/documentos/ventas/${ventaId}/pdf/`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleModalClose = () => {
@@ -332,13 +339,20 @@ export default function VentasListado() {
             <p className="text-sm text-gray-700">
               Estado cobro: {formatEstado(venta.estado_cobro)}
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 type="button"
                 className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
                 onClick={() => handleVer(venta.id)}
               >
                 Ver
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+                onClick={() => handleVerPdf(venta.id)}
+              >
+                Ver PDF
               </Button>
               <Button
                 type="button"
@@ -430,7 +444,7 @@ export default function VentasListado() {
                 <p className="text-sm text-gray-600">Sin detalles cargados.</p>
               )}
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 type="button"
                 className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
@@ -438,6 +452,13 @@ export default function VentasListado() {
                 disabled={isSaving}
               >
                 {isSaving ? "Guardando..." : "Guardar cambios"}
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
+                onClick={() => handleVerPdf(selectedVenta.id)}
+              >
+                Ver PDF
               </Button>
               <Button
                 type="button"
