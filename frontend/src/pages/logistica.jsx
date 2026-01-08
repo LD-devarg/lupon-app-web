@@ -306,6 +306,9 @@ export default function Logistica() {
                     type="button"
                     className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
                     onClick={() => handleEntregar(venta.id)}
+                    disabled={["entregada", "cancelada"].includes(
+                      (venta.estado_entrega || "").toLowerCase()
+                    )}
                   >
                     Entregar
                   </Button>
@@ -313,6 +316,9 @@ export default function Logistica() {
                     type="button"
                     className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
                     onClick={() => handleReprogramar(venta.id)}
+                    disabled={["entregada", "cancelada"].includes(
+                      (venta.estado_entrega || "").toLowerCase()
+                    )}
                   >
                     Reprogramar
                   </Button>
