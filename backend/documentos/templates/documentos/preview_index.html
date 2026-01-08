@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Previsualizaciones de documentos</title>
+</head>
+<body>
+    <h1>Previsualizaciones</h1>
+    {% if templates %}
+        <ul>
+            {% for template in templates %}
+                <li>
+                    <a href="{% url 'documentos:preview' template %}">
+                        {{ template }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No hay templates disponibles.</p>
+    {% endif %}
+</body>
+</html>

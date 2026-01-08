@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import Button from "../components/ui/Button";
 import { getClientes } from "../services/api/clientes";
 import { getProductos } from "../services/api/productos";
+import { API_BASE } from "../services/api/base";
 import { cambiarEstadoEntrega, getVenta, getVentas, reprogramarEntrega } from "../services/api/ventas";
 
 export default function Logistica() {
   const today = new Date().toISOString().slice(0, 10);
+  const documentosBase = API_BASE.replace(/\/api\/?$/, "");
   const [fechaEntrega, setFechaEntrega] = useState(today);
   const [cliente, setCliente] = useState("");
   const [useFiltro, setUseFiltro] = useState(true);
@@ -127,6 +129,11 @@ export default function Logistica() {
     } catch (err) {
       setError(err?.message || "No se pudo cargar la venta.");
     }
+  };
+
+  const handleVerPdf = (ventaId) => {
+    const url = `${documentosBase}/documentos/ventas/${ventaId}/pdf/`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleModalClose = () => {
@@ -301,7 +308,7 @@ export default function Logistica() {
                     Fecha reprogramada: {formatDate(normalizeDate(venta.fecha_reprogramada))}
                   </p>
                 ) : null}
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
                     className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
@@ -328,6 +335,13 @@ export default function Logistica() {
                     onClick={() => handleVer(venta.id)}
                   >
                     Ver
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+                    onClick={() => handleVerPdf(venta.id)}
+                  >
+                    Ver PDF
                   </Button>
                 </div>
               </div>
