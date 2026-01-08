@@ -181,6 +181,15 @@ export default function VentasListado() {
     return "bg-neutral-300 text-gray-700";
   };
 
+  const formatEstado = (value) => {
+    if (!value) return "-";
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const getFechaEntrega = (venta) => {
+    return venta.fecha_reprogramada || venta.fecha_entrega || "";
+  };
+
   const formatArs = (value) => {
     if (value === null || value === undefined || value === "") return "-";
     const number = Number(value);
@@ -295,16 +304,9 @@ export default function VentasListado() {
             <p className="text-sm text-gray-700">
               Fecha: {venta.fecha_venta}
             </p>
-            {venta.fecha_entrega ? (
-              <p className="text-sm text-gray-700">
-                Fecha entrega: {venta.fecha_entrega}
-              </p>
-            ) : null}
-            {venta.fecha_reprogramada ? (
-              <p className="text-sm text-gray-700">
-                Fecha reprogramada: {venta.fecha_reprogramada}
-              </p>
-            ) : null}
+            <p className="text-sm text-gray-700">
+              Fecha entrega: {getFechaEntrega(venta) || "-"}
+            </p>
             <p className="text-sm text-gray-700">
               Total: {formatArs(venta.total)}
             </p>
@@ -312,10 +314,10 @@ export default function VentasListado() {
               Saldo: {formatArs(venta.saldo_pendiente)}
             </p>
             <p className="text-sm text-gray-700">
-              Estado venta: {venta.estado_venta}
+              Estado venta: {formatEstado(venta.estado_venta)}
             </p>
             <p className="text-sm text-gray-700">
-              Estado cobro: {venta.estado_cobro}
+              Estado cobro: {formatEstado(venta.estado_cobro)}
             </p>
             <div className="mt-3 flex gap-2">
               <Button
@@ -353,10 +355,10 @@ export default function VentasListado() {
               Cliente: {clientesById[String(selectedVenta.cliente)]?.nombre || selectedVenta.cliente}
             </p>
             <p className="text-sm text-gray-600">
-              Estado venta: {selectedVenta.estado_venta}
+              Estado venta: {formatEstado(selectedVenta.estado_venta)}
             </p>
             <p className="text-sm text-gray-600">
-              Estado cobro: {selectedVenta.estado_cobro}
+              Estado cobro: {formatEstado(selectedVenta.estado_cobro)}
             </p>
             {modalError ? (
               <p className="mt-2 text-sm text-red-600">{modalError}</p>

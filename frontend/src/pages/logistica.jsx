@@ -41,8 +41,13 @@ export default function Logistica() {
     }, {});
   }, [clientes]);
 
+  const normalizeDate = (value) => {
+    if (!value) return "";
+    return value.split("T")[0];
+  };
+
   const getFechaEntrega = (venta) => {
-    return venta.fecha_reprogramada || venta.fecha_entrega || "";
+    return normalizeDate(venta.fecha_reprogramada || venta.fecha_entrega || "");
   };
 
   const filteredVentas = useMemo(() => {

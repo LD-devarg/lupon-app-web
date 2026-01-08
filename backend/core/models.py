@@ -74,6 +74,8 @@ class Productos(models.Model):
     TIPO_UNIDAD_MEDIDA_CHOICES = [
         ('kg', 'Kilogramo'),
         ('un', 'Unidad'),
+        ('caja', 'Caja'),
+        ('maple', 'Maple'),
     ]
 
     rubro = models.CharField(max_length=30, choices=RUBRO_CHOICES)
