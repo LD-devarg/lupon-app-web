@@ -4,6 +4,15 @@
     margin: 20mm;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #212529;
+}
+
 @media screen {
     body {
         background: #f2f2f2;
@@ -18,20 +27,117 @@
         background: #ffffff;
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
         padding: 20mm;
-        box-sizing: border-box;
     }
 }
 
-.logo {
-    width: 150px;
-    height: auto;
-    margin-bottom: 20px;
-}
-footer {
-    position: absolute;
-    bottom: 20mm;
-    width: calc(100% - 40mm);
+header {
+    background-color: #d2d5d7;
+    padding: 20px;
     text-align: center;
-    font-size: 12px;
-    color: #777777;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    place-items: center;
+}
+.logo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.documento {
+  font: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.documento-x {
+  font-size: 80px;
+}
+
+.datos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 25px;
+  font-weight: bold;
+}
+
+.venta {
+  font-size: 30px;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+.fecha {
+  font-size: 20px;
+  margin-top: 10px;
+}
+
+.datos-cliente {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  font-size: 18px;
+  margin: 15px;
+  padding-bottom: 10px; 
+  border-bottom:  #d2d5d7 1px solid;
+}
+
+.detalle-venta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.table-venta {
+  width: 90%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.table-venta th {
+  background-color: #1d1d1d;
+  color: #fff;  
+  font-weight: bold;
+  border: #d2d5d7 1px solid;
+  text-align: center;
+}
+.col-producto { width: 50%; }
+.col-cantidad { width: 10%; }
+.col-preciounitario { width: 20%; }
+.col-subtotal { width: 20%; }
+
+.table-venta td {
+  border: #d2d5d7 1px solid;
+  padding: 8px;
+  text-align: center;
+}
+
+footer {
+  padding: 10px;
+  text-align: center;
+  position: fixed;
+  bottom: 0;
+  right: 10px;
+  width: calc(100% - 40px);
+  border-top:   #d2d5d7 1px solid;
+}
+
+.total-venta {
+  display: flex;
+  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.observaciones {
+  display: flex;
+  align-items: start;
+  flex-grow: 1;
+  flex-direction: column;
+  font-size: 12px;
 }
