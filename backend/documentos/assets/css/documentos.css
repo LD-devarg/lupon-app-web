@@ -1,0 +1,37 @@
+@page {
+    size: A4;
+    max-resolution: 300dpi;
+    margin: 20mm;
+}
+
+@media screen {
+    body {
+        background: #f2f2f2;
+        margin: 0;
+        padding: 24px;
+    }
+
+    .page {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        background: #ffffff;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        padding: 20mm;
+        box-sizing: border-box;
+    }
+}
+
+.logo {
+    width: 150px;
+    height: auto;
+    margin-bottom: 20px;
+}
+footer {
+    position: absolute;
+    bottom: 20mm;
+    width: calc(100% - 40mm);
+    text-align: center;
+    font-size: 12px;
+    color: #777777;
+}

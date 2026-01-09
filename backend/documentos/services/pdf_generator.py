@@ -1,14 +1,12 @@
 from django.template.loader import render_to_string
-from django.conf import settings
+from pathlib import Path
+
+PDF_ASSETS_DIR = Path(__file__).resolve().parent.parent / 'assets'
 
 def generar_pdf(template, context, output_path=None):
     from weasyprint import HTML
 
     html = render_to_string(template, context)
-    pdf = HTML(string=html,base_url=settings.STATIC_ROOT).write_pdf()
-    
-    if output_path:
-        with open(output_path, 'wb') as f:
-            f.write(pdf)
+    pdf = HTML(string=html,base_url=PDF_ASSETS_DIR).write_pdf()
     
     return pdf
