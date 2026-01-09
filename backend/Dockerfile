@@ -24,4 +24,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["gunicorn", "lupon_admin.wsgi:application", "--bind", "0.0.0.0:$PORT"]
+CMD ["sh", "-c", "gunicorn lupon_admin.wsgi:application --bind 0.0.0.0:$PORT"]
