@@ -62,9 +62,9 @@
                         {% for item in items %}
                             <tr>
                                 <td class="text-center">{{ item.cantidad }}</td>
-                                <td class="text-start">{{ item.producto.nombre }}</td>
-                                <td class="text-end">{{ item.precio_unitario|floatformat:2 }}</td>
-                                <td class="text-end">{{ item.subtotal|floatformat:2 }}</td>
+                                <td class="text-center">{{ item.producto.nombre }}</td>
+                                <td class="text-center">{{ item.precio_unitario|floatformat:2 }}</td>
+                                <td class="text-center">{{ item.subtotal|floatformat:2 }}</td>
                             </tr>
                         {% empty %}
                             <tr>
@@ -75,7 +75,8 @@
                 </table>
             </section>
         </main>
-        <footer>
+        // El footer se empuja al final de la página
+        <footer class="mt-auto">
             <div class="row mt-2">
                 <div class="col-7">
                     <strong class="fs-6">Observaciones:</strong><br>
