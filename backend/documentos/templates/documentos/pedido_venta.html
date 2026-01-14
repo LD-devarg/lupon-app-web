@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Factura de Venta - Nro {{ numero }}</title>
-    <link rel="stylesheet" href="css/fecha_venta.css">
+    <title>Pedido de Venta - Nro {{ pedido_venta.id }}</title>
+    <link rel="stylesheet" href="css/pedido_venta.css">
 </head>
 <body>
     <header >
@@ -12,26 +12,26 @@
             <img class="logo" src="img/logo-lupon.png" alt="Logo Marca">
         </div>
         <div class="documento">
-            <span class="documento-x">X</span>
+            <span>Pedido de Venta</span>
             <span>Documento no válido como Factura</span>
         </div>
         <div class="datos">
-            <span class="venta">Venta N° {{ numero }}</span>
-            <span class="fecha">Fecha: {{ venta.fecha_venta|date:"d/m/Y" }}</span>
+            <span class="pedido-venta"> Pedido de Venta N° {{ pedido_venta.id }}</span>
+            <span class="fecha">Fecha: {{ pedido_venta.fecha_pedido|date:"d/m/Y" }}</span>
         </div>
     </header>
     <main>
         <section class="datos-cliente">
-            <span><strong>Nombre:</strong>{{ venta.cliente.nombre}}</span>
-            <span><strong>Telefono:</strong> {{ venta.cliente.telefono|default:"-"}}</span>
-            <span><strong>Dirección:</strong> {{ venta.direccion_entrega|default:venta.cliente.direccion|default:"-"}}</span>
-            <span><strong>Forma de Pago:</strong> {{ venta.forma_pago}}</span>
+            <span><strong>Nombre:</strong>{{ pedido_venta.cliente.nombre}}</span>
+            <span><strong>Telefono:</strong> {{ pedido_venta.cliente.telefono|default:"-"}}</span>
+            <span><strong>Dirección:</strong> {{ pedido_venta.direccion_entrega|default:pedido_venta.cliente.direccion|default:"-"}}</span>
+            <span><strong>Forma de Pago:</strong> {{ pedido_venta.cliente.forma_pago|default:"-"}}</span>
         </section>
         <section class="detalle-venta">
             <table class="table-venta">
                 <thead>
                     <tr>
-                        <th class="col-productos">Producto</th>
+                        <th class="col-producto">Producto</th>
                         <th class="col-cantidad">Cant.</th>
                         <th class="col-preciounitario">$ Unit.</th>
                         <th class="col-subtotal">Subtotal</th>
@@ -49,18 +49,14 @@
                     <tr>
                         <td colspan="4">No hay productos en la venta.</td>
                     </tr>
-
                     {% endfor %}
                 </tbody>
             </table>
         </section>
     </main>
     <footer>
-        <div class="total-venta">
-            <span><strong>Subtotal: </strong> {{ venta.subtotal|floatformat:2 }}</span>
-            <span><strong>Costo Envío: </strong> {{venta.costo_entrega|floatformat:2}}</span>
-            <span><strong>Descuento: </strong> {{venta.descuento|floatformat:2}}</span>
-            <span><strong>Total: </strong> {{venta.total|floatformat:2}}</span>
+        <div class="subtotal-pedido-venta">
+            <span><strong>Subtotal: </strong> {{ pedido_venta.subtotal|floatformat:2 }}</span>
         </div>
     </footer>
 </body>

@@ -3,12 +3,15 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "../components/ui/Button";
 import { getClientes } from "../services/api/clientes";
 import { getProductos } from "../services/api/productos";
+import { API_BASE } from "../services/api/base";
 import {
   cancelarPedidoVenta,
   getPedidoVenta,
   getPedidosVentas,
   updatePedidoVenta,
 } from "../services/api/pedidosVentas";
+
+const DOCUMENTOS_BASE = API_BASE.replace(/\/api\/?$/, "");
 
 export default function PedidosVentasListado() {
   const navigate = useNavigate();
@@ -327,6 +330,11 @@ export default function PedidosVentasListado() {
     navigate(`/ventas?pedido=${selectedPedido.id}`);
   };
 
+  const handleGenerarPdf = (pedidoId) => {
+    const url = `${DOCUMENTOS_BASE}/documentos/pedidos-ventas/${pedidoId}/pdf/`;
+    window.open(url, "_blank", "noopener");
+  };
+
   const formatArs = (value) => {
     if (value === null || value === undefined || value === "") return "-";
     const number = Number(value);
@@ -440,6 +448,13 @@ export default function PedidosVentasListado() {
                 onClick={() => handleVer(pedido.id)}
               >
                 Ver
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+                onClick={() => handleGenerarPdf(pedido.id)}
+              >
+                PDF
               </Button>
             </div>
           </div>

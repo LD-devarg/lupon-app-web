@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Button from "../components/ui/Button";
+import SearchableSelect from "../components/ui/SearchableSelect";
 import { getContactos } from "../services/api/contactos";
 import { getProductos } from "../services/api/productos";
 import { getPedidoCompra, getPedidosCompras } from "../services/api/pedidosCompras";
@@ -51,6 +52,15 @@ export default function Compras() {
       return acc;
     }, {});
   }, [productos]);
+
+  const productoOptions = useMemo(
+    () =>
+      productos.map((producto) => ({
+        value: String(producto.id),
+        label: producto.nombre,
+      })),
+    [productos]
+  );
 
   const hydrateFromPedido = (pedido) => {
     setPedidoCompraId(String(pedido.id));
@@ -305,22 +315,15 @@ export default function Compras() {
               </div>
               <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-700">Producto</label>
-                <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
-                  <select
-                    className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-                    value={item.producto}
-                    onChange={(event) =>
-                      handleProductoChange(index, event.target.value)
-                    }
-                  >
-                    <option value="">Seleccionar producto</option>
-                    {productos.map((producto) => (
-                      <option key={producto.id} value={producto.id}>
-                        {producto.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SearchableSelect
+                  options={productoOptions}
+                  value={item.producto}
+                  onChange={(value) => handleProductoChange(index, value)}
+                  placeholder="Buscar producto"
+                  wrapperClassName="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300 space-y-2"
+                  inputClassName="w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                  selectClassName="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+                />
               </div>
               <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-700">Precio unitario</label>

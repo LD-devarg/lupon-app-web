@@ -55,10 +55,6 @@ header {
   flex-direction: column;
 }
 
-.documento-x {
-  font-size: 50px;
-}
-
 .datos {
   display: flex;
   flex-direction: column;
@@ -68,7 +64,7 @@ header {
   font-weight: bold;
 }
 
-.venta {
+.pedido-venta {
   font-size: 15px;
   font-weight: bold;
   margin-top: 20px;
@@ -79,13 +75,14 @@ header {
   margin-top: 5px;
 }
 
+
 .datos-cliente {
   display: flex;
   flex-direction: column;
   align-items: start;
   font-size: 12px;
-  margin: 5px;
-  padding-bottom: 5px; 
+  margin: 10px;
+  padding-bottom: 10px; 
   border-bottom:  #d2d5d7 1px solid;
 }
 
@@ -93,6 +90,7 @@ header {
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: 10px;
 }
 
 .table-venta {
@@ -128,17 +126,9 @@ footer {
   border-top:   #d2d5d7 1px solid;
 }
 
-.total-venta {
+.subtotal-pedido-venta {
   display: flex;
   justify-content: flex-end;
   flex-direction: column;
   align-items: flex-end;
-}
-
-.observaciones {
-  display: flex;
-  align-items: start;
-  flex-grow: 1;
-  flex-direction: column;
-  font-size: 12px;
 }

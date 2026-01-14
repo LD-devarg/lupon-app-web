@@ -2,9 +2,8 @@ import { useNavigate } from "react-router-dom";
 import Button from "../ui/Button";
 
 export default function ModalAgregar({ isOpen, onClose }) {
-  if (!isOpen) return null;
-
   const navigate = useNavigate();
+  if (!isOpen) return null;
 
   const handleGoToPedidosVentas = () => {
     onClose();

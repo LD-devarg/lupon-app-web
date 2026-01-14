@@ -237,6 +237,7 @@ export default function Cobros() {
               {clientes.map((clienteItem) => (
                 <option key={clienteItem.id} value={clienteItem.id}>
                   {clienteItem.nombre}
+                  {clienteItem.nombre_fantasia ? ` - ${clienteItem.nombre_fantasia}` : ""}
                 </option>
               ))}
             </select>

@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render
 from django.template import TemplateDoesNotExist
 from django.template.loader import get_template
 
-from core.models import Ventas
+from core.models import PedidosVentas, Ventas
 from documentos.services.pdf_generator import generar_pdf
 
 
@@ -24,32 +24,51 @@ def preview_documento(request, template_slug):
     except TemplateDoesNotExist as exc:
         raise Http404 from exc
 
-    context = {
-        "venta": {
-            "fecha_venta": "2025-01-01",
-            "cliente": {
-                "nombre": "Cliente Demo",
-                "telefono": "1234567890",
-                "direccion": "Calle Falsa 123",
-            },
-            "forma_pago": "contado",
+    items = [
+        {
+            "cantidad": 2,
+            "producto": {"nombre": "Producto Demo"},
+            "precio_unitario": 600,
             "subtotal": 1200,
-            "costo_entrega": 0,
-            "descuento": 0,
-            "total": 1200,
-        },
-        "items": [
-            {
-                "cantidad": 2,
-                "producto": {"nombre": "Producto Demo"},
-                "precio_unitario": 600,
+        }
+    ]
+
+    if template_slug == "pedido_venta":
+        context = {
+            "pedido_venta": {
+                "id": 1,
+                "fecha_pedido": "2025-01-01",
+                "cliente": {
+                    "nombre": "Cliente Demo",
+                    "telefono": "1234567890",
+                    "direccion": "Calle Falsa 123",
+                    "forma_pago": "contado",
+                },
+                "direccion_entrega": "Calle Falsa 123",
                 "subtotal": 1200,
-            }
-        ],
-        "numero": "00000001",
-        "vendedor_nombre": "Vendedor Demo",
-        "observaciones": "Sin observaciones.",
-    }
+            },
+            "items": items,
+        }
+    else:
+        context = {
+            "venta": {
+                "fecha_venta": "2025-01-01",
+                "cliente": {
+                    "nombre": "Cliente Demo",
+                    "telefono": "1234567890",
+                    "direccion": "Calle Falsa 123",
+                },
+                "forma_pago": "contado",
+                "subtotal": 1200,
+                "costo_entrega": 0,
+                "descuento": 0,
+                "total": 1200,
+            },
+            "items": items,
+            "numero": "00000001",
+            "vendedor_nombre": "Vendedor Demo",
+            "observaciones": "Sin observaciones.",
+        }
     return render(request, template_name, context)
 
 
@@ -83,6 +102,25 @@ def _build_factura_context(venta, user):
     }
 
 
+def _build_pedido_venta_context(pedido_venta):
+    items = []
+    for detalle in pedido_venta.detalles.select_related("producto").all():
+        subtotal = detalle.cantidad * detalle.precio_unitario
+        items.append(
+            {
+                "cantidad": detalle.cantidad,
+                "producto": detalle.producto,
+                "precio_unitario": detalle.precio_unitario,
+                "subtotal": subtotal,
+            }
+        )
+
+    return {
+        "pedido_venta": pedido_venta,
+        "items": items,
+    }
+
+
 def factura_venta_html(request, venta_id):
     venta = get_object_or_404(
         Ventas.objects.select_related("cliente", "pedido_venta"),
@@ -100,6 +138,28 @@ def factura_venta_pdf(request, venta_id):
     context = _build_factura_context(venta, request.user)
     pdf = generar_pdf("documentos/factura_venta.html", context)
     filename = f"factura_venta_{venta.id}.pdf"
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+def pedido_venta_html(request, pedido_venta_id):
+    pedido_venta = get_object_or_404(
+        PedidosVentas.objects.select_related("cliente"),
+        pk=pedido_venta_id,
+    )
+    context = _build_pedido_venta_context(pedido_venta)
+    return render(request, "documentos/pedido_venta.html", context)
+
+
+def pedido_venta_pdf(request, pedido_venta_id):
+    pedido_venta = get_object_or_404(
+        PedidosVentas.objects.select_related("cliente"),
+        pk=pedido_venta_id,
+    )
+    context = _build_pedido_venta_context(pedido_venta)
+    pdf = generar_pdf("documentos/pedido_venta.html", context)
+    filename = f"pedido_venta_{pedido_venta.id}.pdf"
     response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response

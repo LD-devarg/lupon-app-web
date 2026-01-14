@@ -24,6 +24,7 @@ export default function Contactos() {
   const [form, setForm] = useState({
     tipo: "",
     nombre: "",
+    nombre_fantasia: "",
     email: "",
     telefono: "",
     categoria: "",
@@ -57,7 +58,8 @@ export default function Contactos() {
     return contactos.filter((contacto) => {
       const matchTipo = tipoFiltro ? contacto.tipo === tipoFiltro : true;
       const matchNombre = nombre
-        ? contacto.nombre?.toLowerCase().includes(nombre)
+        ? contacto.nombre?.toLowerCase().includes(nombre) ||
+          contacto.nombre_fantasia?.toLowerCase().includes(nombre)
         : true;
       return matchTipo && matchNombre;
     });
@@ -71,6 +73,7 @@ export default function Contactos() {
     setForm({
       tipo: "",
       nombre: "",
+      nombre_fantasia: "",
       email: "",
       telefono: "",
       categoria: "",
@@ -91,6 +94,7 @@ export default function Contactos() {
     setForm({
       tipo: contacto.tipo || "",
       nombre: contacto.nombre || "",
+      nombre_fantasia: contacto.nombre_fantasia || "",
       email: contacto.email || "",
       telefono: contacto.telefono || "",
       categoria: contacto.categoria || "",
@@ -125,6 +129,7 @@ export default function Contactos() {
         tipo: form.tipo,
         nombre: form.nombre,
         email: form.email,
+        nombre_fantasia: form.nombre_fantasia,
       };
       if (form.telefono.trim()) payload.telefono = form.telefono.trim();
       if (form.categoria) payload.categoria = form.categoria;
@@ -263,6 +268,9 @@ export default function Contactos() {
             <p className="text-sm text-gray-700">Email: {contacto.email}</p>
             <p className="text-sm text-gray-700">Telefono: {contacto.telefono}</p>
             <p className="text-sm text-gray-700">
+              Nombre de fantasia: {contacto.nombre_fantasia || ""}
+            </p>
+            <p className="text-sm text-gray-700">
               Categoria: {contacto.categoria || "-"}
             </p>
             <p className="text-sm text-gray-700">
@@ -331,6 +339,21 @@ export default function Contactos() {
                     onChange={(event) => handleInputChange("nombre", event.target.value)}
                   />
                 </div>
+                <div className="flex flex-col">
+                  <label className="text-sm font-medium text-gray-700">
+                    Nombre de fantasia
+                  </label>
+                  <input
+                    type="text"
+                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    value={form.nombre_fantasia}
+                    onChange={(event) =>
+                      handleInputChange("nombre_fantasia", event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col">
                   <label className="text-sm font-medium text-gray-700">Email</label>
                   <input
@@ -452,5 +475,3 @@ export default function Contactos() {
     </div>
   );
 }
-
-

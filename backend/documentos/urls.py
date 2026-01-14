@@ -9,4 +9,14 @@ urlpatterns = [
     path("preview/<slug:template_slug>/", views.preview_documento, name="preview"),
     path("ventas/<int:venta_id>/", views.factura_venta_html, name="factura_venta_html"),
     path("ventas/<int:venta_id>/pdf/", views.factura_venta_pdf, name="factura_venta_pdf"),
+    path(
+        "pedidos-ventas/<int:pedido_venta_id>/",
+        views.pedido_venta_html,
+        name="pedido_venta_html",
+    ),
+    path(
+        "pedidos-ventas/<int:pedido_venta_id>/pdf/",
+        views.pedido_venta_pdf,
+        name="pedido_venta_pdf",
+    ),
 ]
