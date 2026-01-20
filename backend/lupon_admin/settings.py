@@ -93,7 +93,7 @@ DATABASES = {
         'NAME': os.getenv("DB_NAME", "postgres"),
         'USER': os.getenv("DB_USER", "postgres.dxphdqbmtubwukcpuwgu"),
         'PASSWORD': os.getenv("DB_PASSWORD", "Distribuidora"),
-        'HOST': os.getenv("DB_HOST", "aws-1-us-east-2.pooler.supabase.com"),
+        'HOST': os.getenv("DB_HOST", "db.dxphdqbmtubwukcpuwgu.supabase.co"),
         'PORT': int(os.getenv("DB_PORT", "5432")),
         "OPTIONS": {
             "sslmode": os.getenv("DB_SSLMODE", "require"),
