@@ -15,8 +15,8 @@ def calcular_precios_producto(precio_compra):
         return (precio / Decimal('500')).to_integral_value(rounding=ROUND_CEILING) * Decimal('500')
 
     precio_minorista = precio_compra * Decimal('1.15')
-    precio_mayorista = precio_compra * Decimal('1.10')
-    precio_mayorista_exclusivo = precio_compra * Decimal('1.08')  # 8% de margen
+    precio_mayorista = precio_compra * Decimal('1.08')
+    precio_mayorista_exclusivo = precio_compra * Decimal('1.06')  # 8% de margen
     precio_oferta = precio_compra * Decimal('1.12')
     
     return {
