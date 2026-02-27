@@ -47,27 +47,34 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'lupon_admin.urls'
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://192.168.1.42:5173",
+    "https://adaptable-balance-production.up.railway.app",
+]
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if cors_origins:
-    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
-else:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "https://adaptable-balance-production.up.railway.app",
-    ]
+    CORS_ALLOWED_ORIGINS.extend(
+        [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+    )
+    CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS))
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.up\.railway\.app$",
+    r"^http://192\.168\.\d{1,3}\.\d{1,3}:5173$",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://192.168.1.42:5173",
+    "https://adaptable-balance-production.up.railway.app",
+]
 csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 if csrf_origins:
-    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins.split(",") if origin.strip()]
-else:
-    CSRF_TRUSTED_ORIGINS = [
-        "http://localhost:5173",
-        "https://adaptable-balance-production.up.railway.app",
-    ]
+    CSRF_TRUSTED_ORIGINS.extend(
+        [origin.strip() for origin in csrf_origins.split(",") if origin.strip()]
+    )
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 TEMPLATES = [
     {
