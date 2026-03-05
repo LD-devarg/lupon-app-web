@@ -4,8 +4,11 @@ export function createVenta(payload) {
   return postJson("/ventas/", payload);
 }
 
-export function getVentas() {
-  return getJson("/ventas/");
+export function getVentas({ clienteId } = {}) {
+  const params = new URLSearchParams();
+  if (clienteId) params.set("cliente_id", String(clienteId));
+  const query = params.toString();
+  return getJson(`/ventas/${query ? `?${query}` : ""}`);
 }
 
 export function getVenta(id) {

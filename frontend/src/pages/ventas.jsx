@@ -1,20 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import Button from "../components/ui/Button";
 import SearchableSelect from "../components/ui/SearchableSelect";
 import { getClientes } from "../services/api/clientes";
 import { getProductos } from "../services/api/productos";
-import { getPedidoVenta, getPedidosVentas } from "../services/api/pedidosVentas";
 import { createVenta } from "../services/api/ventas";
 
 export default function Ventas() {
-  const [searchParams] = useSearchParams();
-  const pedidoParam = searchParams.get("pedido");
-
-  const [pedidosAceptados, setPedidosAceptados] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [productos, setProductos] = useState([]);
-  const [pedidoId, setPedidoId] = useState(pedidoParam || "");
   const [clienteId, setClienteId] = useState("");
   const [direccionEntrega, setDireccionEntrega] = useState("");
   const [fechaEntrega, setFechaEntrega] = useState("");
@@ -30,12 +23,10 @@ export default function Ventas() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [pedidosData, clientesData, productosData] = await Promise.all([
-          getPedidosVentas({ estado: "aceptado" }),
+        const [clientesData, productosData] = await Promise.all([
           getClientes(),
           getProductos(),
         ]);
-        setPedidosAceptados(pedidosData || []);
         setClientes(clientesData || []);
         setProductos(productosData || []);
       } catch (error) {
@@ -67,12 +58,6 @@ export default function Ventas() {
       })),
     [productos]
   );
-
-  const formatDate = (value) => {
-    if (!value) return "";
-    const [year, month, day] = value.split("-");
-    return `${day}/${month}/${year}`;
-  };
 
   const getDefaultPrecio = (producto, cliente) => {
     if (!producto) return "";
@@ -111,77 +96,6 @@ export default function Ventas() {
     return "";
   };
 
-  const hydrateFromPedido = (pedido) => {
-    setPedidoId(String(pedido.id));
-    setClienteId(String(pedido.cliente));
-    setDireccionEntrega(pedido.direccion_entrega || "");
-    setFechaEntrega("");
-    const clienteData = clientesById[String(pedido.cliente)];
-    const detallesFormateados = (pedido.detalles || []).map((detalle) => ({
-      producto: String(detalle.producto),
-      cantidad: detalle.cantidad,
-      precioUnitario: detalle.precio_unitario,
-    }));
-    if (!detallesFormateados.length) {
-      setDetalles([
-        { producto: "", cantidad: "", precioUnitario: "" },
-      ]);
-    } else {
-      setDetalles(
-        detallesFormateados.map((detalle) => {
-          if (!detalle.precioUnitario) {
-            const productoData = productosById[String(detalle.producto)];
-            return {
-              ...detalle,
-              precioUnitario: getDefaultPrecio(productoData, clienteData),
-            };
-          }
-          return detalle;
-        })
-      );
-    }
-  };
-
-  useEffect(() => {
-    if (!pedidoParam) return;
-    const loadPedido = async () => {
-      try {
-        const pedido = await getPedidoVenta(pedidoParam);
-        if (pedido?.estado !== "aceptado") {
-          setLoadError("El pedido seleccionado no esta aceptado.");
-          return;
-        }
-        hydrateFromPedido(pedido);
-      } catch (error) {
-        setLoadError(error?.message || "No se pudo cargar el pedido.");
-      }
-    };
-    loadPedido();
-  }, [pedidoParam, clientesById, productosById]);
-
-  const handlePedidoChange = async (nextId) => {
-    setSubmitError("");
-    setSubmitOk("");
-    if (!nextId) {
-      setPedidoId("");
-      setClienteId("");
-      setDireccionEntrega("");
-      setFechaEntrega("");
-      setDetalles([]);
-      return;
-    }
-    try {
-      const pedido = await getPedidoVenta(nextId);
-      if (pedido?.estado !== "aceptado") {
-        setSubmitError("Solo se pueden usar pedidos aceptados.");
-        return;
-      }
-      hydrateFromPedido(pedido);
-    } catch (error) {
-      setSubmitError(error?.message || "No se pudo cargar el pedido.");
-    }
-  };
-
   const handleAddDetalle = () => {
     setDetalles((prev) => [
       ...prev,
@@ -212,12 +126,27 @@ export default function Ventas() {
     );
   };
 
+  const handleClienteChange = (nextClienteId) => {
+    setClienteId(nextClienteId);
+    const clienteData = clientesById[String(nextClienteId)];
+    setDetalles((prev) =>
+      prev.map((detalle) => {
+        const productoData = productosById[String(detalle.producto)];
+        if (!productoData) return detalle;
+        return {
+          ...detalle,
+          precioUnitario: getDefaultPrecio(productoData, clienteData),
+        };
+      })
+    );
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSubmitError("");
     setSubmitOk("");
-    if (!pedidoId) {
-      setSubmitError("Selecciona un pedido aceptado.");
+    if (!clienteId) {
+      setSubmitError("Selecciona un cliente.");
       return;
     }
     const detallesPayload = detalles.map((item) => ({
@@ -238,7 +167,6 @@ export default function Ventas() {
     try {
       setIsSubmitting(true);
       const payload = {
-        pedido_venta: Number(pedidoId),
         cliente: Number(clienteId),
         forma_pago: formaPago,
         detalles: detallesPayload,
@@ -257,8 +185,12 @@ export default function Ventas() {
       }
       const response = await createVenta(payload);
       setSubmitOk(`Venta #${response?.id || ""} creada.`);
+      setClienteId("");
       setDetalles([]);
+      setDireccionEntrega("");
       setFechaEntrega("");
+      setCostoEntrega("");
+      setDescuento("");
     } catch (error) {
       setSubmitError(error?.message || "No se pudo crear la venta.");
     } finally {
@@ -267,10 +199,10 @@ export default function Ventas() {
   };
 
   return (
-    <div className="mx-auto mt-2 w-full max-w-lg p-4 text-center">
+    <div className="mx-auto mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
       <h2 className="text-xl font-semibold text-gray-800">Nueva venta</h2>
       <p className="mt-1 text-sm text-gray-600">
-        Selecciona un pedido aceptado o carga la venta manualmente.
+        Carga la venta directamente.
       </p>
 
       <form
@@ -288,32 +220,12 @@ export default function Ventas() {
         ) : null}
 
         <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-700">Pedido de venta</label>
-          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
-            <select
-              className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-              value={pedidoId}
-              onChange={(event) => handlePedidoChange(event.target.value)}
-            >
-              <option value="">Seleccionar pedido aceptado</option>
-              {pedidosAceptados.map((pedido) => (
-                <option key={pedido.id} value={pedido.id}>
-                  Pedido #{pedido.id} - {formatDate(pedido.fecha_pedido)} -{" "}
-                  {clientesById[String(pedido.cliente)]?.nombre || pedido.cliente}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex flex-col">
           <label className="text-sm font-medium text-gray-700">Cliente</label>
           <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
             <select
               className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
               value={clienteId}
-              onChange={(event) => setClienteId(event.target.value)}
-              disabled
+              onChange={(event) => handleClienteChange(event.target.value)}
             >
               <option value="">Seleccionar cliente</option>
               {clientes.map((clienteItem) => (
@@ -462,5 +374,6 @@ export default function Ventas() {
     </div>
   );
 }
+
 
 

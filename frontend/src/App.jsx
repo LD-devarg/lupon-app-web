@@ -21,6 +21,7 @@ import Caja from "./pages/caja.jsx";
 import NotasCredito from "./pages/notasCredito.jsx";
 import NotasCreditoListado from "./pages/notasCreditoListado.jsx";
 import Dashboard from "./pages/dashboard.jsx";
+import CuentaCorrienteClientes from "./pages/cuentaCorrienteClientes.jsx";
 
 function RequireAuth() {
   const location = useLocation();
@@ -59,6 +60,7 @@ function App() {
             <Route path="/notas-credito" element={<NotasCredito />} />
             <Route path="/notas-credito/listado" element={<NotasCreditoListado />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/cuenta-corriente-clientes" element={<CuentaCorrienteClientes />} />
           </Route>
         </Routes>
       </MobileLayout>

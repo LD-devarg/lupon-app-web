@@ -3,18 +3,12 @@ from datetime import date
 
 from rest_framework.exceptions import ValidationError
 
-from core.models import (
-    Ventas,
-    VentasDetalle,
-    Productos,
-    Contactos,
-    PedidosVentas,
-    PedidosVentasDetalle
-)
+from core.models import Productos, Contactos
 from core.serializers import VentasSerializer
 
 
 pytestmark = pytest.mark.django_db
+
 
 @pytest.fixture
 def cliente():
@@ -31,30 +25,8 @@ def producto():
     )
 
 
-@pytest.fixture
-def pedido_venta(cliente, producto):
-    pedido = PedidosVentas.objects.create(
-        cliente=cliente,
-        estado="aceptado"
-    )
-
-    PedidosVentasDetalle.objects.create(
-        pedido_venta=pedido,
-        producto=producto,
-        cantidad=2,
-        precio_unitario=100
-    )
-
-    # si tu lógica no recalcula automáticamente:
-    pedido.subtotal = 200
-    pedido.save(update_fields=["subtotal"])
-
-    return pedido
-
-
 def get_valid_payload(cliente, producto, **overrides):
     data = {
-        "pedido_venta": overrides.get("pedido_venta"),
         "fecha_venta": date.today(),
         "cliente": cliente.id,
         "forma_pago": "contado",
@@ -72,14 +44,9 @@ def get_valid_payload(cliente, producto, **overrides):
     data.update(overrides)
     return data
 
-def test_crea_venta_valida(cliente, producto, pedido_venta):
-    serializer = VentasSerializer(
-        data=get_valid_payload(
-            cliente,
-            producto,
-            pedido_venta=pedido_venta.id
-        )
-    )
+
+def test_crea_venta_valida(cliente, producto):
+    serializer = VentasSerializer(data=get_valid_payload(cliente, producto))
 
     assert serializer.is_valid(), serializer.errors
     venta = serializer.save()
@@ -88,14 +55,9 @@ def test_crea_venta_valida(cliente, producto, pedido_venta):
     assert venta.total == 200
     assert venta.saldo_pendiente == 200
 
-def test_estados_iniciales(cliente, producto, pedido_venta):
-    venta = VentasSerializer(
-        data=get_valid_payload(
-            cliente,
-            producto,
-            pedido_venta=pedido_venta.id
-        )
-    )
+
+def test_estados_iniciales(cliente, producto):
+    venta = VentasSerializer(data=get_valid_payload(cliente, producto))
     venta.is_valid(raise_exception=True)
     venta = venta.save()
 
@@ -103,12 +65,12 @@ def test_estados_iniciales(cliente, producto, pedido_venta):
     assert venta.estado_cobro == "pendiente"
     assert venta.estado_entrega == "pendiente"
 
-def test_calcula_totales(cliente, producto, pedido_venta):
+
+def test_calcula_totales(cliente, producto):
     serializer = VentasSerializer(
         data=get_valid_payload(
             cliente,
             producto,
-            pedido_venta=pedido_venta.id,
             costo_entrega=50,
             descuento=20
         )
@@ -120,10 +82,10 @@ def test_calcula_totales(cliente, producto, pedido_venta):
     assert venta.subtotal == 200
     assert venta.total == 230
 
-def test_falla_si_no_hay_detalles(cliente, pedido_venta):
+
+def test_falla_si_no_hay_detalles(cliente):
     serializer = VentasSerializer(
         data={
-            "pedido_venta": pedido_venta.id,
             "fecha_venta": date.today(),
             "cliente": cliente.id,
             "forma_pago": "contado",
@@ -135,10 +97,10 @@ def test_falla_si_no_hay_detalles(cliente, pedido_venta):
     with pytest.raises(ValidationError):
         serializer.save()
 
-def test_falla_si_cantidad_cero(cliente, producto, pedido_venta):
+
+def test_falla_si_cantidad_cero(cliente, producto):
     serializer = VentasSerializer(
         data={
-            "pedido_venta": pedido_venta.id,
             "fecha_venta": date.today(),
             "cliente": cliente.id,
             "forma_pago": "contado",
@@ -156,12 +118,12 @@ def test_falla_si_cantidad_cero(cliente, producto, pedido_venta):
     with pytest.raises(ValidationError):
         serializer.save()
 
-def test_campos_read_only_no_se_setean(cliente, producto, pedido_venta):
+
+def test_campos_read_only_no_se_setean(cliente, producto):
     serializer = VentasSerializer(
         data=get_valid_payload(
             cliente,
             producto,
-            pedido_venta=pedido_venta.id,
             subtotal=9999,
             total=9999,
             saldo_pendiente=9999,

@@ -395,11 +395,14 @@ class VentasViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         estado_entrega = self.request.query_params.get('estado_entrega', None)
         cliente = self.request.query_params.get('cliente', None)
+        cliente_id = self.request.query_params.get('cliente_id', None)
         
         if estado_entrega:
             queryset = queryset.filter(estado_entrega=estado_entrega)
         if cliente:
             queryset = queryset.filter(cliente__nombre__icontains=cliente)
+        if cliente_id:
+            queryset = queryset.filter(cliente_id=cliente_id)
             
         return queryset
     
@@ -434,10 +437,13 @@ class CobrosViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         params = self.request.query_params
         cliente = params.get('cliente', None)
+        cliente_id = params.get('cliente_id', None)
         fecha = params.get('fecha_cobro', None)
         
         if cliente:
             queryset = queryset.filter(cliente__nombre__icontains=cliente)
+        if cliente_id:
+            queryset = queryset.filter(cliente_id=cliente_id)
         
         if fecha:
             queryset = queryset.filter(fecha_cobro=fecha)

@@ -215,7 +215,7 @@ export default function Compras() {
   };
 
   return (
-    <div className="mx-auto bg-neutral-300 mt-2 max-w-lg p-4 text-center">
+    <div className="mx-auto bg-neutral-300 mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
       <h2 className="text-xl font-semibold text-gray-800">Nueva compra</h2>
       <p className="mt-1 text-sm text-gray-600">
         Carga de compras a proveedores.
@@ -407,3 +407,4 @@ export default function Compras() {
     </div>
   );
 }
+

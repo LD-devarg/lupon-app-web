@@ -1,8 +1,11 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env", override=True)
 
 
 SECRET_KEY = 'django-insecure-ie3yr$c5@0_ldii218p2l93@ypin7rml9h&v)vsi7*s)&#*d%g'
@@ -50,6 +53,10 @@ ROOT_URLCONF = 'lupon_admin.urls'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://192.168.1.42:5173",
+    "http://192.168.1.92:5173",
+    "http://localhost:5174",
+    "http://192.168.1.42:5174",
+    "http://192.168.1.92:5174",
     "https://adaptable-balance-production.up.railway.app",
 ]
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
@@ -61,12 +68,16 @@ if cors_origins:
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.up\.railway\.app$",
-    r"^http://192\.168\.\d{1,3}\.\d{1,3}:5173$",
+    r"^http://192\.168\.\d{1,3}\.\d{1,3}:517[34]$",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://192.168.1.42:5173",
+    "http://192.168.1.92:5173",
+    "http://localhost:5174",
+    "http://192.168.1.42:5174",
+    "http://192.168.1.92:5174",
     "https://adaptable-balance-production.up.railway.app",
 ]
 csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
@@ -98,12 +109,12 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv("DB_NAME", "postgres"),
-        'USER': os.getenv("DB_USER", "postgres.dxphdqbmtubwukcpuwgu"),
-        'PASSWORD': os.getenv("DB_PASSWORD", "Distribuidora"),
-        'HOST': os.getenv("DB_HOST", "aws-1-us-east-2.pooler.supabase.com"),
+        'USER': os.getenv("DB_USER", "postgres"),
+        'PASSWORD': os.getenv("DB_PASSWORD", ""),
+        'HOST': os.getenv("DB_HOST", "localhost"),
         'PORT': int(os.getenv("DB_PORT", "5432")),
         "OPTIONS": {
-            "sslmode": os.getenv("DB_SSLMODE", "require"),
+            "sslmode": os.getenv("DB_SSLMODE", "prefer"),
         },
     }
 }

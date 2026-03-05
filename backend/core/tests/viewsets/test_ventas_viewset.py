@@ -3,13 +3,7 @@ from decimal import Decimal
 from rest_framework.test import APIClient
 from django.contrib.auth.models import User
 
-from core.models import (
-    Contactos,
-    Productos,
-    PedidosVentas,
-    PedidosVentasDetalle,
-    Ventas,
-)
+from core.models import Contactos, Productos, Ventas
 from core.serializers import VentasSerializer
 
 pytestmark = pytest.mark.django_db
@@ -50,29 +44,10 @@ def producto():
 
 
 @pytest.fixture
-def pedido_aceptado(cliente, producto):
-    pedido = PedidosVentas.objects.create(
-        cliente=cliente,
-        estado="aceptado",
-        subtotal=Decimal("200.00"),
-    )
-
-    PedidosVentasDetalle.objects.create(
-        pedido_venta=pedido,
-        producto=producto,
-        cantidad=2,
-        precio_unitario=Decimal("100.00"),
-    )
-
-    return pedido
-
-
-@pytest.fixture
-def venta(pedido_aceptado, producto):
+def venta(cliente, producto):
     serializer = VentasSerializer(
         data={
-            "pedido_venta": pedido_aceptado.id,
-            "cliente": pedido_aceptado.cliente.id,
+            "cliente": cliente.id,
             "forma_pago": "contado",
             "detalles": [
                 {
@@ -87,10 +62,9 @@ def venta(pedido_aceptado, producto):
     return serializer.save()
 
 
-def test_crear_venta(api_client, user, pedido_aceptado, producto):
+def test_crear_venta(api_client, user, cliente, producto):
     payload = {
-        "pedido_venta": pedido_aceptado.id,
-        "cliente": pedido_aceptado.cliente.id,
+        "cliente": cliente.id,
         "forma_pago": "contado",
         "detalles": [
             {
@@ -120,7 +94,6 @@ def test_cambiar_estado_entrega(api_client, user, venta):
     assert res.status_code == 200
     venta.refresh_from_db()
     assert venta.estado_entrega == "entregada"
-    assert venta.pedido_venta.estado == "Completado"
 
 
 def test_no_cancelar_venta_completada(api_client, user, venta):

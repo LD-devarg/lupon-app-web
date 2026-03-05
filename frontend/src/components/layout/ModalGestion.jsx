@@ -7,6 +7,7 @@ const LINKS = [
   { label: "Pedidos de Compra", path: "/pedidos-compras/listado" },
   { label: "Compras", path: "/compras/listado" },
   { label: "Caja", path: "/caja" },
+  { label: "Cuenta corriente", path: "/cuenta-corriente-clientes" },
   { label: "Notas de credito", path: "/notas-credito/listado" },
   { label: "Contactos", path: "/contactos" },
   { label: "Productos", path: "/productos" },

@@ -223,7 +223,7 @@ export default function PedidosComprasListado() {
   };
 
   return (
-    <div className="mx-auto mt-2 w-full max-w-lg p-4 text-center">
+    <div className="mx-auto mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
       <h2 className="text-xl font-semibold text-gray-800">Pedidos de compra</h2>
       <p className="mt-1 text-sm text-gray-600">
         Listado para buscar y gestionar pedidos.
@@ -479,4 +479,5 @@ export default function PedidosComprasListado() {
     </div>
   );
 }
+
 

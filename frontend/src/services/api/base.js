@@ -1,6 +1,8 @@
 export const API_BASE =
   import.meta.env.VITE_API_BASE ||
-  "https://lupon-app-web-production.up.railway.app/api";
+  (import.meta.env.DEV
+    ? `http://${window.location.hostname}:8000/api`
+    : "https://lupon-app-web-production.up.railway.app/api");
 
 const ACCESS_KEY = "authAccessToken";
 const REFRESH_KEY = "authRefreshToken";

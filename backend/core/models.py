@@ -231,7 +231,13 @@ class Ventas(models.Model):
         ('cancelado', 'Cancelado'),
     ]
 
-    pedido_venta = models.ForeignKey(PedidosVentas, on_delete=models.CASCADE, related_name='ventas')
+    pedido_venta = models.ForeignKey(
+        PedidosVentas,
+        on_delete=models.CASCADE,
+        related_name='ventas',
+        null=True,
+        blank=True,
+    )
     pedido_compra = models.ForeignKey(
         PedidosCompras,
         null=True,
@@ -281,7 +287,9 @@ class Ventas(models.Model):
         ]
 
     def __str__(self):
-        return f"Venta #{self.id} - Pedido #{self.pedido_venta.id}" 
+        if self.pedido_venta_id:
+            return f"Venta #{self.id} - Pedido #{self.pedido_venta.id}"
+        return f"Venta #{self.id} - Directa"
        
 class VentasDetalle(models.Model):
     venta = models.ForeignKey(
