@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+from urllib.parse import parse_qs, unquote, urlparse
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,7 +11,7 @@ load_dotenv(BASE_DIR / ".env", override=True)
 
 SECRET_KEY = 'django-insecure-ie3yr$c5@0_ldii218p2l93@ypin7rml9h&v)vsi7*s)&#*d%g'
 
-DEBUG = os.getenv("DEBUG", "True") == "True"
+DEBUG = os.getenv("DEBUG", "False").strip().lower() == "true"
 
 allowed_hosts = os.getenv("ALLOWED_HOSTS", "")
 if allowed_hosts:
@@ -105,19 +106,41 @@ TEMPLATES = [
 WSGI_APPLICATION = 'lupon_admin.wsgi.application'
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv("DB_NAME", "postgres"),
-        'USER': os.getenv("DB_USER", "postgres"),
-        'PASSWORD': os.getenv("DB_PASSWORD", ""),
-        'HOST': os.getenv("DB_HOST", "localhost"),
-        'PORT': int(os.getenv("DB_PORT", "5432")),
+def _database_config():
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url:
+        parsed = urlparse(database_url)
+        options = {}
+        query = parse_qs(parsed.query)
+        if "sslmode" in query and query["sslmode"]:
+            options["sslmode"] = query["sslmode"][-1]
+        elif os.getenv("DB_SSLMODE"):
+            options["sslmode"] = os.getenv("DB_SSLMODE")
+
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed.path.lstrip("/")),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "localhost",
+            "PORT": int(parsed.port or 5432),
+            "OPTIONS": options or {"sslmode": "prefer"},
+        }
+
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME", "postgres"),
+        "USER": os.getenv("DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": int(os.getenv("DB_PORT", "5432")),
         "OPTIONS": {
             "sslmode": os.getenv("DB_SSLMODE", "prefer"),
         },
     }
-}
+
+
+DATABASES = {"default": _database_config()}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
