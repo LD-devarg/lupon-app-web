@@ -1,5 +1,6 @@
 import pytest
 from decimal import Decimal
+from datetime import date
 from rest_framework.test import APIClient
 from django.contrib.auth.models import User
 
@@ -123,3 +124,57 @@ def test_cancelar_venta(api_client, user, venta):
     assert venta.estado_venta == "cancelada"
     assert venta.estado_entrega == "cancelada"
     assert venta.saldo_pendiente == Decimal("0.00")
+
+
+def test_reordenar_entregas(api_client, user, cliente, producto):
+    fecha_entrega = date(2026, 3, 10)
+
+    serializer_1 = VentasSerializer(
+        data={
+            "cliente": cliente.id,
+            "forma_pago": "contado",
+            "fecha_entrega": fecha_entrega,
+            "detalles": [
+                {
+                    "producto": producto.id,
+                    "cantidad": 1,
+                    "precio_unitario": "100.00",
+                }
+            ],
+        }
+    )
+    serializer_1.is_valid(raise_exception=True)
+    venta_1 = serializer_1.save()
+
+    serializer_2 = VentasSerializer(
+        data={
+            "cliente": cliente.id,
+            "forma_pago": "contado",
+            "fecha_entrega": fecha_entrega,
+            "detalles": [
+                {
+                    "producto": producto.id,
+                    "cantidad": 1,
+                    "precio_unitario": "100.00",
+                }
+            ],
+        }
+    )
+    serializer_2.is_valid(raise_exception=True)
+    venta_2 = serializer_2.save()
+
+    res = api_client.post(
+        "/api/ventas/reordenar_entregas/",
+        {
+            "fecha_entrega": fecha_entrega.isoformat(),
+            "ventas_ids": [venta_2.id, venta_1.id],
+        },
+        format="json",
+    )
+
+    assert res.status_code == 200
+
+    venta_1.refresh_from_db()
+    venta_2.refresh_from_db()
+    assert venta_2.orden_entrega == 1
+    assert venta_1.orden_entrega == 2

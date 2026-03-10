@@ -19,4 +19,14 @@ urlpatterns = [
         views.pedido_venta_pdf,
         name="pedido_venta_pdf",
     ),
+    path(
+        "pedidos-compras/<int:pedido_compra_id>/",
+        views.pedido_compra_html,
+        name="pedido_compra_html",
+    ),
+    path(
+        "pedidos-compras/<int:pedido_compra_id>/pdf/",
+        views.pedido_compra_pdf,
+        name="pedido_compra_pdf",
+    ),
 ]

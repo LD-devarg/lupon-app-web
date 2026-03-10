@@ -1,4 +1,7 @@
-from core.domain.logica import calcular_precios_producto
+from collections import OrderedDict
+from decimal import Decimal
+
+from core.domain.logica import calcular_precios_producto, calcular_subtotal
 
 # ======================================================
 # VENTAS & COBROS
@@ -261,3 +264,88 @@ def aplicar_nota_credito(nota_credito):
     # 3. Estado de la nota de crédito
     nota_credito.estado = 'aplicada'
     nota_credito.save(update_fields=['estado'])
+
+
+def generar_pedido_compra_automatico(fecha_entrega, proveedor_nombre="Avícola del Atlantico"):
+    from core.models import Contactos, PedidosCompras, PedidosComprasDetalle, Ventas
+
+    proveedor = Contactos.objects.filter(
+        tipo='proveedor',
+        nombre__iexact=proveedor_nombre,
+    ).first()
+    if not proveedor:
+        raise ValueError(
+            f"No existe el proveedor '{proveedor_nombre}'."
+        )
+
+    observacion_automatica = (
+        f"Generado automaticamente para entregas del {fecha_entrega:%d/%m/%Y}."
+    )
+
+    pedido = PedidosCompras.objects.filter(
+        proveedor=proveedor,
+        fecha_pedido=fecha_entrega,
+        estado='pendiente',
+        observaciones=observacion_automatica,
+    ).first()
+
+    if not pedido:
+        pedido = PedidosCompras.objects.create(
+            proveedor=proveedor,
+            fecha_pedido=fecha_entrega,
+            estado='pendiente',
+            observaciones=observacion_automatica,
+        )
+        creado = True
+    else:
+        creado = False
+
+    ventas = list(
+        Ventas.objects.filter(
+            fecha_entrega=fecha_entrega,
+            estado_venta__in=['en proceso', 'completada'],
+        )
+        .exclude(estado_entrega='cancelada')
+        .filter(pedido_compra__isnull=True) | Ventas.objects.filter(pedido_compra=pedido)
+    )
+
+    ventas = list(OrderedDict((venta.id, venta) for venta in ventas).values())
+
+    if not ventas:
+        if creado:
+            pedido.delete()
+        raise ValueError(
+            f"No hay ventas pendientes para consolidar en la fecha {fecha_entrega:%d/%m/%Y}."
+        )
+
+    acumulado = OrderedDict()
+    for venta in ventas:
+        for detalle in venta.detalles.select_related('producto').all():
+            producto_id = detalle.producto_id
+            if producto_id not in acumulado:
+                acumulado[producto_id] = {
+                    'producto': detalle.producto,
+                    'cantidad': Decimal('0.00'),
+                    'precio_unitario': detalle.producto.precio_compra,
+                }
+            acumulado[producto_id]['cantidad'] += detalle.cantidad
+
+    pedido.detalles.all().delete()
+    nuevos_detalles = []
+    for item in acumulado.values():
+        nuevos_detalles.append(
+            PedidosComprasDetalle(
+                pedido_compra=pedido,
+                producto=item['producto'],
+                cantidad=item['cantidad'],
+                precio_unitario=item['precio_unitario'],
+            )
+        )
+    PedidosComprasDetalle.objects.bulk_create(nuevos_detalles)
+
+    Ventas.objects.filter(id__in=[venta.id for venta in ventas]).update(pedido_compra=pedido)
+
+    pedido.subtotal = calcular_subtotal(pedido.detalles.all())
+    pedido.save(update_fields=['subtotal'])
+
+    return pedido, creado, len(ventas)

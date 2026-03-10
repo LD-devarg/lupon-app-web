@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedido de Compra - Nro {{ pedido_compra.id }}</title>
+    <link rel="stylesheet" href="css/pedido_compra.css">
+</head>
+<body>
+    <div class="page">
+        <header>
+            <div class="imagen-logo">
+                <img class="logo" src="img/logo-lupon.png" alt="Logo Marca">
+            </div>
+            <div class="documento">
+                <span class="titulo">Pedido de compra</span>
+                <span>Proveedor: {{ pedido_compra.proveedor.nombre }}</span>
+            </div>
+            <div class="datos">
+                <span class="pedido-compra">Pedido N° {{ pedido_compra.id }}</span>
+                <span class="fecha">Entrega: {{ pedido_compra.fecha_pedido|date:"d/m/Y" }}</span>
+            </div>
+        </header>
+        <main>
+            <section class="datos-proveedor">
+                <span><strong>Proveedor:</strong> {{ pedido_compra.proveedor.nombre }}</span>
+                <span><strong>Teléfono:</strong> {{ pedido_compra.proveedor.telefono|default:"-" }}</span>
+                <span><strong>Dirección:</strong> {{ pedido_compra.proveedor.direccion|default:"-" }}</span>
+                <span><strong>Estado:</strong> {{ pedido_compra.get_estado_display|default:pedido_compra.estado }}</span>
+            </section>
+
+            {% if pedido_compra.observaciones %}
+            <section class="observaciones">
+                <strong>Observaciones:</strong>
+                <span>{{ pedido_compra.observaciones }}</span>
+            </section>
+            {% endif %}
+
+            <section class="detalle-pedido">
+                <table class="table-pedido">
+                    <thead>
+                        <tr>
+                            <th class="col-producto">Producto</th>
+                            <th class="col-cantidad">Cantidad</th>
+                            <th class="col-precio">$ Lista</th>
+                            <th class="col-subtotal">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.producto.nombre }}</td>
+                            <td>{{ item.cantidad }}</td>
+                            <td>{{ item.precio_unitario|floatformat:2 }}</td>
+                            <td>{{ item.subtotal|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4">No hay productos en el pedido.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="ventas-origen">
+                <h2>Ventas incluidas</h2>
+                <table class="table-ventas">
+                    <thead>
+                        <tr>
+                            <th class="col-venta">Venta</th>
+                            <th class="col-cliente">Cliente</th>
+                            <th class="col-direccion">Dirección de entrega</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for venta in ventas %}
+                        <tr>
+                            <td>#{{ venta.id }}</td>
+                            <td>{{ venta.cliente.nombre }}</td>
+                            <td>{{ venta.direccion_entrega|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3">No hay ventas vinculadas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        </main>
+        <footer>
+            <div class="totales">
+                <span><strong>Subtotal:</strong> {{ pedido_compra.subtotal|floatformat:2 }}</span>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

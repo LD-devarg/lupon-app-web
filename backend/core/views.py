@@ -8,15 +8,15 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-from django.db.models import Sum, Count, Max, Q
+from django.db.models import Sum, Count, Max, Q, F
 from datetime import datetime, timedelta
 from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle, NotasCredito, NotasCreditoDetalle
-from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer, CobrosSerializer, CobrosDetalleSerializer, PedidosComprasSerializer, PedidosComprasDetalleSerializer, CancelarVentaSerializer, ComprasSerializer, ComprasDetalleSerializer, CambiarEstadoCompraSerializer, CancelarCompraSerializer, PagosSerializer, PagosDetalleSerializer, NotasCreditoSerializer
+from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer, CobrosSerializer, CobrosDetalleSerializer, PedidosComprasSerializer, PedidosComprasDetalleSerializer, CancelarVentaSerializer, ComprasSerializer, ComprasDetalleSerializer, CambiarEstadoCompraSerializer, CancelarCompraSerializer, PagosSerializer, PagosDetalleSerializer, NotasCreditoSerializer, GenerarPedidoCompraAutomaticoSerializer, ReordenarEntregasSerializer
 from .domain.logica import calcular_precios_producto, calcular_subtotal
 from .domain.validaciones_ventas import validar_cambio_estado_venta, validar_cambio_estado_pedido_venta, validar_cambio_estado_entrega
 from .domain.validaciones_usuarios import validar_cambio_estado_usuario, validar_cambio_contrasena, validar_cambio_email
 from .domain.validaciones_compras import validar_cambio_estado_compra, validar_modificacion_pedido_compra
-from .servicios.automatizaciones import completar_pedido_venta_al_entregar, cancelar_compra, recalcular_estado_pago, recalcular_estado_venta, recalcular_precios_producto, cancelar_venta_domain
+from .servicios.automatizaciones import completar_pedido_venta_al_entregar, cancelar_compra, recalcular_estado_pago, recalcular_estado_venta, recalcular_precios_producto, cancelar_venta_domain, generar_pedido_compra_automatico
 from decimal import Decimal
 # ============================================================
 # ViewSets
@@ -316,6 +316,36 @@ class PedidosVentasViewSet(viewsets.ModelViewSet):
 class VentasViewSet(viewsets.ModelViewSet):
     serializer_class = VentasSerializer
     queryset = Ventas.objects.all()
+
+    @action(detail=False, methods=['post'], serializer_class=ReordenarEntregasSerializer)
+    def reordenar_entregas(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        fecha_entrega = serializer.validated_data['fecha_entrega']
+        ventas_ids = serializer.validated_data['ventas_ids']
+
+        ventas = list(
+            Ventas.objects.filter(
+                id__in=ventas_ids,
+            ).filter(
+                Q(fecha_entrega=fecha_entrega) | Q(fecha_reprogramada=fecha_entrega)
+            )
+        )
+
+        if len(ventas) != len(ventas_ids):
+            return Response(
+                {"error": "La lista contiene ventas invalidas para la fecha seleccionada."},
+                status=400,
+            )
+
+        ventas_by_id = {venta.id: venta for venta in ventas}
+        for posicion, venta_id in enumerate(ventas_ids, start=1):
+            venta = ventas_by_id[venta_id]
+            venta.orden_entrega = posicion
+            venta.save(update_fields=['orden_entrega'])
+
+        return Response({"status": "Orden de entrega actualizado correctamente."})
     
     # Cambio de estado de entrega validada en domain/validaciones_ventas.py
     @action(detail=True, methods=['post'], serializer_class=CambiarEstadoVentaSerializer)
@@ -396,6 +426,7 @@ class VentasViewSet(viewsets.ModelViewSet):
         estado_entrega = self.request.query_params.get('estado_entrega', None)
         cliente = self.request.query_params.get('cliente', None)
         cliente_id = self.request.query_params.get('cliente_id', None)
+        fecha_entrega = self.request.query_params.get('fecha_entrega', None)
         
         if estado_entrega:
             queryset = queryset.filter(estado_entrega=estado_entrega)
@@ -403,8 +434,16 @@ class VentasViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(cliente__nombre__icontains=cliente)
         if cliente_id:
             queryset = queryset.filter(cliente_id=cliente_id)
+        if fecha_entrega:
+            queryset = queryset.filter(
+                Q(fecha_entrega=fecha_entrega) | Q(fecha_reprogramada=fecha_entrega)
+            )
             
-        return queryset
+        return queryset.order_by(
+            F('fecha_entrega').asc(nulls_last=True),
+            F('orden_entrega').asc(nulls_last=True),
+            'id',
+        )
     
 class VentasDetalleViewSet(ReadOnlyModelViewSet):
     serializer_class = VentasDetalleSerializer
@@ -471,6 +510,28 @@ class PedidosComprasViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(proveedor__nombre__icontains=proveedor)
 
         return queryset
+
+    @action(detail=False, methods=['post'], serializer_class=GenerarPedidoCompraAutomaticoSerializer)
+    def generar_automatico(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        fecha_entrega = serializer.validated_data['fecha_entrega']
+
+        try:
+            pedido, creado, ventas_count = generar_pedido_compra_automatico(fecha_entrega)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=400)
+
+        data = {
+            "status": "Pedido de compra generado correctamente.",
+            "pedido_compra_id": pedido.id,
+            "fecha_entrega": fecha_entrega,
+            "ventas_consolidadas": ventas_count,
+            "detalles": PedidosComprasDetalleSerializer(pedido.detalles.all(), many=True).data,
+            "subtotal": str(pedido.subtotal),
+        }
+        return Response(data, status=201 if creado else 200)
 
     @action(detail=True, methods=['delete'], url_path='detalles/(?P<detalle_id>[^/.]+)')
     def eliminar_detalle(self, request, pk=None, detalle_id=None):

@@ -1,0 +1,149 @@
+@page {
+    size: A4;
+    margin: 16mm;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #212529;
+}
+
+@media screen {
+    body {
+        background: #f2f2f2;
+        padding: 24px;
+    }
+
+    .page {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        padding: 16mm;
+        background: #fff;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    }
+}
+
+header {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 12px;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #d2d5d7;
+}
+
+.logo {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+}
+
+.documento,
+.datos {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.documento {
+    align-items: center;
+    text-align: center;
+    font-size: 12px;
+}
+
+.titulo,
+.pedido-compra {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.datos {
+    align-items: flex-end;
+    font-size: 12px;
+}
+
+.fecha {
+    font-size: 11px;
+}
+
+.datos-proveedor,
+.observaciones {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 14px;
+    font-size: 12px;
+}
+
+.detalle-pedido,
+.ventas-origen {
+    margin-top: 18px;
+}
+
+.ventas-origen h2 {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+
+.table-pedido,
+.table-ventas {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.table-pedido th,
+.table-ventas th {
+    background: #1d1d1d;
+    color: #fff;
+    border: 1px solid #d2d5d7;
+    padding: 8px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.table-pedido td,
+.table-ventas td {
+    border: 1px solid #d2d5d7;
+    padding: 8px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.col-producto {
+    width: 40%;
+}
+
+.col-cantidad,
+.col-precio,
+.col-subtotal,
+.col-venta {
+    width: 20%;
+}
+
+.col-cliente {
+    width: 30%;
+}
+
+.col-direccion {
+    width: 50%;
+}
+
+footer {
+    margin-top: 18px;
+    padding-top: 10px;
+    border-top: 1px solid #d2d5d7;
+}
+
+.totales {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 13px;
+    font-weight: bold;
+}

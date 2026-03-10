@@ -4,9 +4,10 @@ export function createVenta(payload) {
   return postJson("/ventas/", payload);
 }
 
-export function getVentas({ clienteId } = {}) {
+export function getVentas({ clienteId, fechaEntrega } = {}) {
   const params = new URLSearchParams();
   if (clienteId) params.set("cliente_id", String(clienteId));
+  if (fechaEntrega) params.set("fecha_entrega", fechaEntrega);
   const query = params.toString();
   return getJson(`/ventas/${query ? `?${query}` : ""}`);
 }
@@ -30,5 +31,12 @@ export function reprogramarEntrega(id, nuevaFecha) {
 export function cancelarVenta(id, motivo) {
   return postJson(`/ventas/${id}/cancelar_venta/`, {
     motivo_cancelacion: motivo,
+  });
+}
+
+export function reordenarEntregas(fechaEntrega, ventasIds) {
+  return postJson("/ventas/reordenar_entregas/", {
+    fecha_entrega: fechaEntrega,
+    ventas_ids: ventasIds,
   });
 }

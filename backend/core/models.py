@@ -256,6 +256,7 @@ class Ventas(models.Model):
     direccion_entrega = models.CharField(max_length=200, blank=True, null=True)
     fecha_entrega = models.DateField(null=True, blank=True)
     fecha_reprogramada = models.DateField(null=True, blank=True)
+    orden_entrega = models.PositiveIntegerField(null=True, blank=True)
     
     fecha_cancelacion = models.DateField(null=True, blank=True)
     motivo_cancelacion = models.TextField(blank=True, null=True)
@@ -278,7 +279,7 @@ class Ventas(models.Model):
     actualizado_en = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-fecha_venta']
+        ordering = ['fecha_entrega', 'orden_entrega', '-fecha_venta']
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(saldo_pendiente__gte=0),

@@ -1,5 +1,6 @@
 import pytest
 from decimal import Decimal
+from datetime import date
 from rest_framework.test import APIClient
 from django.contrib.auth.models import User
 
@@ -8,6 +9,8 @@ from core.models import (
     Productos,
     PedidosCompras,
     PedidosComprasDetalle,
+    Ventas,
+    VentasDetalle,
 )
 
 pytestmark = pytest.mark.django_db
@@ -38,12 +41,46 @@ def proveedor():
 
 
 @pytest.fixture
+def proveedor_avicola():
+    return Contactos.objects.create(
+        nombre="Avícola del Atlantico",
+        tipo="proveedor",
+        email="avicola@test.com",
+        forma_pago="contado",
+        dias_cc=0,
+        saldo_contacto=Decimal("0.00"),
+    )
+
+
+@pytest.fixture
+def cliente():
+    return Contactos.objects.create(
+        nombre="Cliente Test",
+        tipo="cliente",
+        email="cliente-pc@test.com",
+        forma_pago="contado",
+        dias_cc=0,
+        saldo_contacto=Decimal("0.00"),
+    )
+
+
+@pytest.fixture
 def producto():
     return Productos.objects.create(
         nombre="Producto Compra",
         rubro="pollo entero",
         unidad_medida="kg",
         precio_compra=Decimal("50.00"),
+    )
+
+
+@pytest.fixture
+def producto_b():
+    return Productos.objects.create(
+        nombre="Producto Compra B",
+        rubro="trozados y derivados",
+        unidad_medida="kg",
+        precio_compra=Decimal("70.00"),
     )
 
 
@@ -173,3 +210,73 @@ def test_no_cambiar_estado_invalid(api_client, user, pedido_pendiente):
     )
 
     assert res.status_code == 400
+
+
+def test_generar_pedido_compra_automatico(api_client, user, proveedor_avicola, cliente, producto, producto_b):
+    fecha_entrega = date(2026, 3, 10)
+    venta_1 = Ventas.objects.create(
+        cliente=cliente,
+        forma_pago="contado",
+        fecha_entrega=fecha_entrega,
+        subtotal=Decimal("340.00"),
+        total=Decimal("340.00"),
+        saldo_pendiente=Decimal("340.00"),
+    )
+    venta_2 = Ventas.objects.create(
+        cliente=cliente,
+        forma_pago="contado",
+        fecha_entrega=fecha_entrega,
+        subtotal=Decimal("340.00"),
+        total=Decimal("340.00"),
+        saldo_pendiente=Decimal("340.00"),
+    )
+
+    VentasDetalle.objects.create(
+        venta=venta_1,
+        producto=producto,
+        cantidad=2,
+        precio_unitario=Decimal("100.00"),
+    )
+    VentasDetalle.objects.create(
+        venta=venta_1,
+        producto=producto_b,
+        cantidad=2,
+        precio_unitario=Decimal("70.00"),
+    )
+    VentasDetalle.objects.create(
+        venta=venta_2,
+        producto=producto,
+        cantidad=2,
+        precio_unitario=Decimal("100.00"),
+    )
+    VentasDetalle.objects.create(
+        venta=venta_2,
+        producto=producto_b,
+        cantidad=2,
+        precio_unitario=Decimal("70.00"),
+    )
+
+    res = api_client.post(
+        "/api/pedidos-compras/generar_automatico/",
+        {"fecha_entrega": fecha_entrega.isoformat()},
+        format="json",
+    )
+
+    assert res.status_code == 201
+
+    pedido = PedidosCompras.objects.get(id=res.data["pedido_compra_id"])
+    assert pedido.proveedor == proveedor_avicola
+    assert pedido.fecha_pedido == fecha_entrega
+    assert pedido.subtotal == Decimal("480.00")
+    assert pedido.ventas.count() == 2
+
+    detalles = {detalle.producto.nombre: detalle for detalle in pedido.detalles.all()}
+    assert detalles["Producto Compra"].cantidad == Decimal("4.00")
+    assert detalles["Producto Compra"].precio_unitario == Decimal("50.00")
+    assert detalles["Producto Compra B"].cantidad == Decimal("4.00")
+    assert detalles["Producto Compra B"].precio_unitario == Decimal("70.00")
+
+    venta_1.refresh_from_db()
+    venta_2.refresh_from_db()
+    assert venta_1.pedido_compra_id == pedido.id
+    assert venta_2.pedido_compra_id == pedido.id

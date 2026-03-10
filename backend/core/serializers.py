@@ -292,6 +292,8 @@ class VentasSerializer(serializers.ModelSerializer):
             'cliente',
             'direccion_entrega',
             'fecha_entrega',
+            'fecha_reprogramada',
+            'orden_entrega',
             'forma_pago',
             'detalles',
             'subtotal',
@@ -304,7 +306,7 @@ class VentasSerializer(serializers.ModelSerializer):
             'estado_entrega',
             'vencimiento',
             ]
-        read_only_fields = ['subtotal', 'total', 'saldo_pendiente', 'estado_venta', 'estado_cobro', 'estado_entrega', 'vencimiento']
+        read_only_fields = ['subtotal', 'total', 'saldo_pendiente', 'estado_venta', 'estado_cobro', 'estado_entrega', 'vencimiento', 'fecha_reprogramada', 'orden_entrega']
     
     
     @transaction.atomic
@@ -345,6 +347,14 @@ class NuevaFechaEntregaSerializer(serializers.Serializer):
 
 class CancelarVentaSerializer(serializers.Serializer):
     motivo_cancelacion = serializers.CharField(required=True)
+
+
+class ReordenarEntregasSerializer(serializers.Serializer):
+    fecha_entrega = serializers.DateField(required=True)
+    ventas_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
 
 # Cobros
 
@@ -599,6 +609,10 @@ class CambiarEstadoCompraSerializer(serializers.Serializer):
 
 class CancelarCompraSerializer(serializers.Serializer):
     motivo_cancelacion = serializers.CharField(required=True)
+
+
+class GenerarPedidoCompraAutomaticoSerializer(serializers.Serializer):
+    fecha_entrega = serializers.DateField(required=True)
 
 # Pagos Serializer
 

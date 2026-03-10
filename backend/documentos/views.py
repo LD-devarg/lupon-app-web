@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render
 from django.template import TemplateDoesNotExist
 from django.template.loader import get_template
 
-from core.models import PedidosVentas, Ventas
+from core.models import PedidosCompras, PedidosVentas, Ventas
 from documentos.services.pdf_generator import generar_pdf
 
 
@@ -48,6 +48,28 @@ def preview_documento(request, template_slug):
                 "subtotal": 1200,
             },
             "items": items,
+        }
+    elif template_slug == "pedido_compra":
+        context = {
+            "pedido_compra": {
+                "id": 1,
+                "fecha_pedido": "2025-01-01",
+                "proveedor": {
+                    "nombre": "Avícola del Atlantico",
+                    "telefono": "1234567890",
+                    "direccion": "Ruta 2 Km 400",
+                },
+                "subtotal": 1200,
+                "observaciones": "Generado automaticamente para entregas del 01/01/2025.",
+            },
+            "items": items,
+            "ventas": [
+                {
+                    "id": 10,
+                    "cliente": {"nombre": "Cliente Demo"},
+                    "direccion_entrega": "Calle Falsa 123",
+                }
+            ],
         }
     else:
         context = {
@@ -121,6 +143,35 @@ def _build_pedido_venta_context(pedido_venta):
     }
 
 
+def _build_pedido_compra_context(pedido_compra):
+    items = []
+    for detalle in pedido_compra.detalles.select_related("producto").all():
+        subtotal = detalle.cantidad * detalle.precio_unitario
+        items.append(
+            {
+                "cantidad": detalle.cantidad,
+                "producto": detalle.producto,
+                "precio_unitario": detalle.precio_unitario,
+                "subtotal": subtotal,
+            }
+        )
+
+    ventas = [
+        {
+            "id": venta.id,
+            "cliente": venta.cliente,
+            "direccion_entrega": venta.direccion_entrega or venta.cliente.direccion,
+        }
+        for venta in pedido_compra.ventas.select_related("cliente").all().order_by("id")
+    ]
+
+    return {
+        "pedido_compra": pedido_compra,
+        "items": items,
+        "ventas": ventas,
+    }
+
+
 def factura_venta_html(request, venta_id):
     venta = get_object_or_404(
         Ventas.objects.select_related("cliente", "pedido_venta"),
@@ -160,6 +211,28 @@ def pedido_venta_pdf(request, pedido_venta_id):
     context = _build_pedido_venta_context(pedido_venta)
     pdf = generar_pdf("documentos/pedido_venta.html", context)
     filename = f"pedido_venta_{pedido_venta.id}.pdf"
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+def pedido_compra_html(request, pedido_compra_id):
+    pedido_compra = get_object_or_404(
+        PedidosCompras.objects.select_related("proveedor"),
+        pk=pedido_compra_id,
+    )
+    context = _build_pedido_compra_context(pedido_compra)
+    return render(request, "documentos/pedido_compra.html", context)
+
+
+def pedido_compra_pdf(request, pedido_compra_id):
+    pedido_compra = get_object_or_404(
+        PedidosCompras.objects.select_related("proveedor"),
+        pk=pedido_compra_id,
+    )
+    context = _build_pedido_compra_context(pedido_compra)
+    pdf = generar_pdf("documentos/pedido_compra.html", context)
+    filename = f"pedido_compra_{pedido_compra.id}.pdf"
     response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
