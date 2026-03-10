@@ -1,67 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Factura de Venta - Nro {{ numero }}</title>
-    <link rel="stylesheet" href="css/fecha_venta.css">
+    <link rel="stylesheet" href="css/factura_venta.css">
 </head>
 <body>
-    <header >
-        <div class="imagen-logo">
-            <img class="logo" src="img/logo-lupon.png" alt="Logo Marca">
-        </div>
-        <div class="documento">
-            <span class="documento-x">X</span>
-            <span>Documento no válido como Factura</span>
-        </div>
-        <div class="datos">
-            <span class="venta">Venta N° {{ numero }}</span>
-            <span class="fecha">Fecha: {{ venta.fecha_venta|date:"d/m/Y" }}</span>
-        </div>
-    </header>
-    <main>
-        <section class="datos-cliente">
-            <span><strong>Nombre:</strong>{{ venta.cliente.nombre}}</span>
-            <span><strong>Telefono:</strong> {{ venta.cliente.telefono|default:"-"}}</span>
-            <span><strong>Dirección:</strong> {{ venta.direccion_entrega|default:venta.cliente.direccion|default:"-"}}</span>
-            <span><strong>Forma de Pago:</strong> {{ venta.forma_pago}}</span>
-        </section>
-        <section class="detalle-venta">
-            <table class="table-venta">
-                <thead>
-                    <tr>
-                        <th class="col-productos">Producto</th>
-                        <th class="col-cantidad">Cant.</th>
-                        <th class="col-preciounitario">$ Unit.</th>
-                        <th class="col-subtotal">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr>
-                        <td>{{item.producto.nombre}}</td>
-                        <td>{{item.cantidad}}</td>
-                        <td>{{item.precio_unitario|floatformat:2}}</td>
-                        <td>{{item.subtotal|floatformat:2}}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4">No hay productos en la venta.</td>
-                    </tr>
-
-                    {% endfor %}
-                </tbody>
-            </table>
-        </section>
-    </main>
-    <footer>
-        <div class="total-venta">
-            <span><strong>Subtotal: </strong> {{ venta.subtotal|floatformat:2 }}</span>
-            <span><strong>Costo Envío: </strong> {{venta.costo_entrega|floatformat:2}}</span>
-            <span><strong>Descuento: </strong> {{venta.descuento|floatformat:2}}</span>
-            <span><strong>Total: </strong> {{venta.total|floatformat:2}}</span>
-        </div>
-    </footer>
+    <div class="page">
+        <header>
+            <div class="imagen-logo">
+                <img class="logo" src="img/logo-lupon.png" alt="Logo Marca">
+            </div>
+            <div class="documento">
+                <span class="documento-x">X</span>
+                <span>Documento no válido como factura</span>
+            </div>
+            <div class="datos">
+                <span class="venta">Venta N° {{ numero }}</span>
+                <span class="fecha">Fecha: {{ venta.fecha_venta|date:"d/m/Y" }}</span>
+            </div>
+        </header>
+        <main>
+            <section class="datos-cliente">
+                <span><strong>Nombre:</strong> {{ venta.cliente.nombre }}</span>
+                <span><strong>Teléfono:</strong> {{ venta.cliente.telefono|default:"-" }}</span>
+                <span><strong>Dirección:</strong> {{ venta.direccion_entrega|default:venta.cliente.direccion|default:"-" }}</span>
+                <span><strong>Forma de pago:</strong> {{ venta.forma_pago }}</span>
+            </section>
+            <section class="detalle-venta">
+                <table class="table-venta">
+                    <thead>
+                        <tr>
+                            <th class="col-producto">Producto</th>
+                            <th class="col-cantidad">Cant.</th>
+                            <th class="col-preciounitario">$ Unit.</th>
+                            <th class="col-subtotal">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.producto.nombre }}</td>
+                            <td>{{ item.cantidad }}</td>
+                            <td>{{ item.precio_unitario|floatformat:2 }}</td>
+                            <td>{{ item.subtotal|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4">No hay productos en la venta.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        </main>
+        <footer>
+            <div class="total-venta">
+                <span><strong>Subtotal:</strong> {{ venta.subtotal|floatformat:2 }}</span>
+                <span><strong>Costo envío:</strong> {{ venta.costo_entrega|floatformat:2 }}</span>
+                <span><strong>Descuento:</strong> {{ venta.descuento|floatformat:2 }}</span>
+                <span><strong>Total:</strong> {{ venta.total|floatformat:2 }}</span>
+            </div>
+        </footer>
+    </div>
 </body>
 </html>
