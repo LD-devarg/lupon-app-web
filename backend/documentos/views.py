@@ -1,11 +1,12 @@
 from pathlib import Path
+from decimal import Decimal
 
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template import TemplateDoesNotExist
 from django.template.loader import get_template
 
-from core.models import PedidosCompras, PedidosVentas, Ventas
+from core.models import Cobros, Contactos, PedidosCompras, PedidosVentas, Ventas
 from documentos.services.pdf_generator import generar_pdf
 
 
@@ -172,6 +173,81 @@ def _build_pedido_compra_context(pedido_compra):
     }
 
 
+def _build_cuenta_corriente_context(cliente, fecha_desde=None, fecha_hasta=None):
+    ventas_qs = Ventas.objects.filter(cliente=cliente).exclude(estado_venta="cancelada")
+    cobros_qs = Cobros.objects.filter(cliente=cliente)
+
+    if fecha_desde:
+        ventas_anteriores = ventas_qs.filter(fecha_venta__lt=fecha_desde)
+        cobros_anteriores = cobros_qs.filter(fecha_cobro__lt=fecha_desde)
+    else:
+        ventas_anteriores = ventas_qs.none()
+        cobros_anteriores = cobros_qs.none()
+
+    if fecha_desde:
+        ventas_qs = ventas_qs.filter(fecha_venta__gte=fecha_desde)
+        cobros_qs = cobros_qs.filter(fecha_cobro__gte=fecha_desde)
+    if fecha_hasta:
+        ventas_qs = ventas_qs.filter(fecha_venta__lte=fecha_hasta)
+        cobros_qs = cobros_qs.filter(fecha_cobro__lte=fecha_hasta)
+
+    saldo_inicial = Decimal("0")
+    for venta in ventas_anteriores:
+        saldo_inicial += venta.total or Decimal("0")
+    for cobro in cobros_anteriores:
+        saldo_inicial -= cobro.monto or Decimal("0")
+
+    movimientos = [
+        *[
+            {
+                "tipo": "venta",
+                "fecha_emision": venta.fecha_venta,
+                "detalle": f"Venta #{venta.id}",
+                "fecha_vto": venta.vencimiento,
+                "debe": venta.total or Decimal("0"),
+                "haber": Decimal("0"),
+                "id": venta.id,
+            }
+            for venta in ventas_qs
+        ],
+        *[
+            {
+                "tipo": "cobro",
+                "fecha_emision": cobro.fecha_cobro,
+                "detalle": f"Cobro #{cobro.id}",
+                "fecha_vto": None,
+                "debe": Decimal("0"),
+                "haber": cobro.monto or Decimal("0"),
+                "id": cobro.id,
+            }
+            for cobro in cobros_qs
+        ],
+    ]
+
+    movimientos.sort(
+        key=lambda item: (
+            item["fecha_emision"] or "",
+            0 if item["tipo"] == "venta" else 1,
+            item["id"],
+        )
+    )
+
+    saldo = saldo_inicial
+    movimientos_con_saldo = []
+    for item in movimientos:
+        saldo += item["debe"] - item["haber"]
+        movimientos_con_saldo.append({**item, "saldo": saldo})
+
+    return {
+        "cliente": cliente,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "saldo_inicial": saldo_inicial,
+        "saldo_actual": saldo,
+        "movimientos": movimientos_con_saldo,
+    }
+
+
 def factura_venta_html(request, venta_id):
     venta = get_object_or_404(
         Ventas.objects.select_related("cliente", "pedido_venta"),
@@ -233,6 +309,26 @@ def pedido_compra_pdf(request, pedido_compra_id):
     context = _build_pedido_compra_context(pedido_compra)
     pdf = generar_pdf("documentos/pedido_compra.html", context)
     filename = f"pedido_compra_{pedido_compra.id}.pdf"
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+def cuenta_corriente_cliente_html(request, cliente_id):
+    cliente = get_object_or_404(Contactos.objects.filter(tipo="cliente"), pk=cliente_id)
+    fecha_desde = request.GET.get("fecha_desde") or None
+    fecha_hasta = request.GET.get("fecha_hasta") or None
+    context = _build_cuenta_corriente_context(cliente, fecha_desde, fecha_hasta)
+    return render(request, "documentos/cuenta_corriente_cliente.html", context)
+
+
+def cuenta_corriente_cliente_pdf(request, cliente_id):
+    cliente = get_object_or_404(Contactos.objects.filter(tipo="cliente"), pk=cliente_id)
+    fecha_desde = request.GET.get("fecha_desde") or None
+    fecha_hasta = request.GET.get("fecha_hasta") or None
+    context = _build_cuenta_corriente_context(cliente, fecha_desde, fecha_hasta)
+    pdf = generar_pdf("documentos/cuenta_corriente_cliente.html", context)
+    filename = f"cuenta_corriente_cliente_{cliente.id}.pdf"
     response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response

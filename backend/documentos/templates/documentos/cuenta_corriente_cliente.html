@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuenta Corriente - {{ cliente.nombre }}</title>
+    <link rel="stylesheet" href="css/cuenta_corriente_cliente.css">
+</head>
+<body>
+    <div class="page">
+        <header class="header">
+            <div class="logo-wrap">
+                <img class="logo" src="img/logo-lupon.png" alt="Logo Lupon">
+            </div>
+            <div class="heading">
+                <h1>Cuenta corriente cliente</h1>
+                <p>{{ cliente.nombre }}{% if cliente.nombre_fantasia %} - {{ cliente.nombre_fantasia }}{% endif %}</p>
+            </div>
+            <div class="periodo">
+                <span><strong>Desde:</strong> {{ fecha_desde|default:"-" }}</span>
+                <span><strong>Hasta:</strong> {{ fecha_hasta|default:"-" }}</span>
+            </div>
+        </header>
+
+        <section class="cliente-data">
+            <span><strong>Telefono:</strong> {{ cliente.telefono|default:"-" }}</span>
+            <span><strong>Direccion:</strong> {{ cliente.direccion|default:"-" }}</span>
+            <span><strong>Forma de pago:</strong> {{ cliente.forma_pago|default:"-" }}</span>
+            <span><strong>Saldo inicial:</strong> $ {{ saldo_inicial|floatformat:2 }}</span>
+            <span><strong>Saldo actual:</strong> $ {{ saldo_actual|floatformat:2 }}</span>
+        </section>
+
+        <section class="detalle">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha emision</th>
+                        <th>Detalle</th>
+                        <th>Fecha vto.</th>
+                        <th>Debe</th>
+                        <th>Haber</th>
+                        <th>Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if fecha_desde %}
+                    <tr>
+                        <td>{{ fecha_desde|date:"d/m/Y" }}</td>
+                        <td>Saldo inicial</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>$ {{ saldo_inicial|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    {% for movimiento in movimientos %}
+                    <tr>
+                        <td>{{ movimiento.fecha_emision|date:"d/m/Y" }}</td>
+                        <td>{{ movimiento.detalle }}</td>
+                        <td>{% if movimiento.fecha_vto %}{{ movimiento.fecha_vto|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                        <td>{% if movimiento.debe %}$ {{ movimiento.debe|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td>{% if movimiento.haber %}$ {{ movimiento.haber|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td>$ {{ movimiento.saldo|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">No hay movimientos en el periodo seleccionado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+</body>
+</html>

@@ -4,10 +4,12 @@ export function createVenta(payload) {
   return postJson("/ventas/", payload);
 }
 
-export function getVentas({ clienteId, fechaEntrega } = {}) {
+export function getVentas({ clienteId, fechaEntrega, fechaDesde, fechaHasta } = {}) {
   const params = new URLSearchParams();
   if (clienteId) params.set("cliente_id", String(clienteId));
   if (fechaEntrega) params.set("fecha_entrega", fechaEntrega);
+  if (fechaDesde) params.set("fecha_desde", fechaDesde);
+  if (fechaHasta) params.set("fecha_hasta", fechaHasta);
   const query = params.toString();
   return getJson(`/ventas/${query ? `?${query}` : ""}`);
 }

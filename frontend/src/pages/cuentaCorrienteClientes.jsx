@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SearchableSelect from "../components/ui/SearchableSelect";
+import Button from "../components/ui/Button";
+import { API_BASE } from "../services/api/base";
 import { getClientes } from "../services/api/clientes";
 import { getVentas } from "../services/api/ventas";
 import { getCobros } from "../services/api/cobros";
@@ -7,6 +9,8 @@ import { getCobros } from "../services/api/cobros";
 export default function CuentaCorrienteClientes() {
   const [clientes, setClientes] = useState([]);
   const [clienteId, setClienteId] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [ventas, setVentas] = useState([]);
   const [cobros, setCobros] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +39,8 @@ export default function CuentaCorrienteClientes() {
       setIsLoading(true);
       try {
         const [ventasData, cobrosData] = await Promise.all([
-          getVentas({ clienteId }),
-          getCobros({ clienteId }),
+          getVentas({ clienteId, fechaDesde, fechaHasta }),
+          getCobros({ clienteId, fechaDesde, fechaHasta }),
         ]);
         setVentas(ventasData || []);
         setCobros(cobrosData || []);
@@ -47,7 +51,7 @@ export default function CuentaCorrienteClientes() {
       }
     };
     loadMovimientos();
-  }, [clienteId]);
+  }, [clienteId, fechaDesde, fechaHasta]);
 
   const clienteOptions = useMemo(
     () =>
@@ -117,24 +121,67 @@ export default function CuentaCorrienteClientes() {
     ? movimientos[movimientos.length - 1].saldo
     : 0;
 
+  const documentosBase = API_BASE.replace(/\/api\/?$/, "");
+
+  const handleExportar = () => {
+    if (!clienteId) return;
+    const params = new URLSearchParams();
+    if (fechaDesde) params.set("fecha_desde", fechaDesde);
+    if (fechaHasta) params.set("fecha_hasta", fechaHasta);
+    const query = params.toString();
+    const url = `${documentosBase}/documentos/cuenta-corriente/clientes/${clienteId}/pdf/${query ? `?${query}` : ""}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <div className="mx-auto mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
+    <div className="mx-auto mt-2 w-full max-w-lg p-4 text-center lg:max-w-6xl">
       <h2 className="text-xl font-semibold text-gray-800">Cuenta Corriente Clientes</h2>
       <p className="mt-1 text-sm text-gray-600">
         Libro de ventas y cobros con saldo a la fecha.
       </p>
 
       <div className="mt-4 rounded-xl pedidos-shadow p-4 text-left">
-        <label className="text-sm font-medium text-gray-700">Cliente</label>
-        <SearchableSelect
-          options={clienteOptions}
-          value={clienteId}
-          onChange={setClienteId}
-          placeholder="Seleccionar cliente"
-          wrapperClassName="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300"
-          inputClassName="w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
-          selectClassName="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-        />
+        <div className="grid items-end gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.75fr)_minmax(0,0.75fr)_auto]">
+          <div className="min-w-0">
+            <label className="text-sm font-medium text-gray-700">Cliente</label>
+            <SearchableSelect
+              options={clienteOptions}
+              value={clienteId}
+              onChange={setClienteId}
+              placeholder="Seleccionar cliente"
+              size="sm"
+              wrapperClassName="mt-1"
+              inputClassName="w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+              selectClassName="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700">Desde</label>
+            <input
+              type="date"
+              className="mt-1 h-10 rounded-lg border border-gray-300 px-3 text-sm input-shadow bg-neutral-300"
+              value={fechaDesde}
+              onChange={(event) => setFechaDesde(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700">Hasta</label>
+            <input
+              type="date"
+              className="mt-1 h-10 rounded-lg border border-gray-300 px-3 text-sm input-shadow bg-neutral-300"
+              value={fechaHasta}
+              onChange={(event) => setFechaHasta(event.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            className="h-10 rounded-lg px-4 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+            onClick={handleExportar}
+            disabled={!clienteId}
+          >
+            Exportar
+          </Button>
+        </div>
       </div>
 
       {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}

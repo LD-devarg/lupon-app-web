@@ -4,9 +4,11 @@ export function createCobro(payload) {
   return postJson("/cobros/", payload);
 }
 
-export function getCobros({ clienteId } = {}) {
+export function getCobros({ clienteId, fechaDesde, fechaHasta } = {}) {
   const params = new URLSearchParams();
   if (clienteId) params.set("cliente_id", String(clienteId));
+  if (fechaDesde) params.set("fecha_desde", fechaDesde);
+  if (fechaHasta) params.set("fecha_hasta", fechaHasta);
   const query = params.toString();
   return getJson(`/cobros/${query ? `?${query}` : ""}`);
 }

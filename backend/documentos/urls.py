@@ -29,4 +29,14 @@ urlpatterns = [
         views.pedido_compra_pdf,
         name="pedido_compra_pdf",
     ),
+    path(
+        "cuenta-corriente/clientes/<int:cliente_id>/",
+        views.cuenta_corriente_cliente_html,
+        name="cuenta_corriente_cliente_html",
+    ),
+    path(
+        "cuenta-corriente/clientes/<int:cliente_id>/pdf/",
+        views.cuenta_corriente_cliente_pdf,
+        name="cuenta_corriente_cliente_pdf",
+    ),
 ]
