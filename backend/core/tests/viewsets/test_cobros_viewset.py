@@ -10,6 +10,7 @@ from core.models import (
     PedidosVentasDetalle,
     Ventas,
     Cobros,
+    CobrosMedioPago,
 )
 from core.serializers import VentasSerializer
 
@@ -181,3 +182,46 @@ def test_no_cobrar_venta_cancelada(api_client, user, cliente, venta):
     )
 
     assert res.status_code == 400
+
+
+def test_crear_cobro_manual_sin_detalles(api_client, user, cliente):
+    res = api_client.post(
+        "/api/cobros/",
+        {
+            "cliente": cliente.id,
+            "medio_pago": "efectivo",
+            "monto": "100.00",
+            "detalles": [],
+        },
+        format="json",
+    )
+
+    assert res.status_code == 201
+    cobro = Cobros.objects.get(id=res.data["id"])
+    cliente.refresh_from_db()
+
+    assert cobro.saldo_disponible == Decimal("100.00")
+    assert cliente.saldo_contacto == Decimal("-100.00")
+
+
+def test_crear_cobro_con_multiples_medios(api_client, user, cliente):
+    res = api_client.post(
+        "/api/cobros/",
+        {
+            "cliente": cliente.id,
+            "monto": "250.00",
+            "medios_pago": [
+                {"medio_pago": "efectivo", "monto": "100.00"},
+                {"medio_pago": "transferencia", "monto": "150.00"},
+            ],
+            "detalles": [],
+        },
+        format="json",
+    )
+
+    assert res.status_code == 201, res.data
+    cobro = Cobros.objects.get(id=res.data["id"])
+
+    assert cobro.medio_pago == ""
+    assert CobrosMedioPago.objects.filter(cobro=cobro).count() == 2
+    assert res.data["medio_pago_resumen"] == "multiple"

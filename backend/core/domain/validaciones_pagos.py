@@ -59,6 +59,9 @@ def validar_detalles(detalles_data):
     - id (opcional)
     """
 
+    if detalles_data == []:
+        return True
+
     for d in detalles_data:
         compra = d['compra']
         monto = d['monto_aplicado']

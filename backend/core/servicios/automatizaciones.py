@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from decimal import Decimal
 
 from core.domain.logica import calcular_precios_producto, calcular_subtotal
@@ -7,234 +6,149 @@ from core.domain.logica import calcular_precios_producto, calcular_subtotal
 # VENTAS & COBROS
 # ======================================================
 
-# ----------------------
-# Estados derivados (FUENTE ÚNICA DE VERDAD)
-# ----------------------
+def recalcular_estado_cobro(venta):
+    if venta.estado_venta == 'cancelada':
+        return 'cancelado'
+
+    if (venta.saldo_pendiente == 0 and not venta.cobros_detalle.exists() and venta.notas_credito_aplicadas.exists()):
+        return "cancelado"
+
+    if venta.saldo_pendiente == 0:
+        return 'cobrado'
+
+    if 0 < venta.saldo_pendiente < venta.total:
+        return 'parcial'
+
+    return 'pendiente'
+
 
 def recalcular_estado_venta(venta):
     if venta.estado_venta == 'cancelada':
         return 'cancelada'
-    
-    # Cancelada por NC (sin cobros)
+
+    # NC que cubre el total sin cobros reales → cancelada contablemente
     if (
         venta.saldo_pendiente == 0
         and not venta.cobros_detalle.exists()
         and venta.notas_credito_aplicadas.exists()
     ):
         return 'cancelada'
-    
-    if (
-        venta.estado_entrega == 'entregada' and
-        venta.saldo_pendiente == 0
-    ):
-        return 'completada'
-    
-    return 'en proceso'
 
-def recalcular_estado_cobro(venta):
-   
-    if venta.estado_venta == 'cancelada':
-        return 'cancelado'
-    
-    # Para nota de credito el criterio es, si el saldo pendiente queda en 0 y además la venta no tiene cobros asociados entonces se concidera que el cobro es "cancelado"
-    if (venta.saldo_pendiente == 0 and not venta.cobros_detalle.exists() and venta.notas_credito_aplicadas.exists()):
-        return "cancelado"
-    
-    if venta.saldo_pendiente == 0:
-        return 'cobrado'
-    
-    if 0 < venta.saldo_pendiente < venta.total:
-        return 'parcial'
-    
-    return 'pendiente'  # venta sin pagos
+    return venta.estado_venta
 
 
-# ----------------------
-# Automatizaciones sobre Ventas
-# ----------------------
-
-# Al crear una venta: impacta saldo del contacto y saldo pendiente
 def saldos_al_crear_venta(venta):
     contacto = venta.cliente
     contacto.saldo_contacto += venta.total
     contacto.save(update_fields=['saldo_contacto'])
-    
+
     venta.saldo_pendiente = venta.total
     venta.save(update_fields=['saldo_pendiente'])
 
 
-# Al marcar una venta como entregada: completa el pedido de venta
-def completar_pedido_venta_al_entregar(venta, estado_entrega):
-    estado_entrega = estado_entrega.capitalize()
-    
-    if estado_entrega == 'Entregada':
-        pedido_venta = venta.pedido_venta
-        if pedido_venta and pedido_venta.estado not in ['Completado', 'Cancelado']:
-            pedido_venta.estado = 'Completado'
-            pedido_venta.save(update_fields=['estado'])
-
-
-# Al cancelar una venta
 def cancelar_venta_domain(venta):
-    # Desvincular pedido de compra si existe
-    if hasattr(venta, 'pedido_compra') and venta.pedido_compra:
-        venta.pedido_compra = None
-        if hasattr(venta, 'save'):
-            venta.save(update_fields=['pedido_compra'])
-    
-    # Impacto contable
     contacto = venta.cliente
     contacto.saldo_contacto -= venta.total
-    if hasattr(contacto, 'save'):
-        contacto.save(update_fields=['saldo_contacto'])
-    
-    # Estados derivados
+    contacto.save(update_fields=['saldo_contacto'])
+
     venta.saldo_pendiente = 0
     venta.estado_venta = 'cancelada'
-    venta.estado_entrega = 'cancelada'
     venta.estado_cobro = recalcular_estado_cobro(venta)
-    if hasattr(venta, 'save'):
-        venta.save(update_fields=['saldo_pendiente', 'estado_cobro', 'estado_entrega', 'estado_venta'])
+    venta.save(update_fields=['saldo_pendiente', 'estado_cobro', 'estado_venta'])
 
 
-# ----------------------
-# Automatizaciones sobre Cobros
-# ----------------------
-
-# Al crear un cobro
 def saldos_al_crear_cobro(cobro):
     contacto = cobro.cliente
     contacto.saldo_contacto -= cobro.monto
     contacto.save(update_fields=['saldo_contacto'])
-    
+
     cobro.saldo_disponible = cobro.monto
     cobro.save(update_fields=['saldo_disponible'])
 
 
-# Al aplicar un cobro a una venta
 def saldos_al_crear_cobro_detalle(cobro_detalle):
     venta = cobro_detalle.venta
     cobro = cobro_detalle.cobro
-    
-    venta.saldo_pendiente -= cobro_detalle.monto_aplicado
-    if hasattr(venta, 'save'):
-        venta.save(update_fields=['saldo_pendiente'])
-    
-    cobro.saldo_disponible -= cobro_detalle.monto_aplicado
-    if hasattr(cobro, 'save'):
-        cobro.save(update_fields=['saldo_disponible'])
 
-# Recalcular estado de cobro de las ventas afectadas
+    venta.saldo_pendiente -= cobro_detalle.monto_aplicado
+    venta.save(update_fields=['saldo_pendiente'])
+
+    cobro.saldo_disponible -= cobro_detalle.monto_aplicado
+    cobro.save(update_fields=['saldo_disponible'])
+
+
 def actualizar_estado_ventas_al_cobrar(cobro):
     ventas = {detalle.venta for detalle in cobro.detalles.all()}
     for venta in ventas:
         venta.estado_cobro = recalcular_estado_cobro(venta)
-        venta.estado_venta = recalcular_estado_venta(venta)
-        if hasattr(venta, 'save'):
-            venta.save(update_fields=['estado_cobro', 'estado_venta'])
+        venta.save(update_fields=['estado_cobro'])
 
 
 # ======================================================
 # COMPRAS & PAGOS
 # ======================================================
 
-# ----------------------
-# Estados derivados (FUENTE ÚNICA DE VERDAD)
-# ----------------------
-
 def recalcular_estado_pago(compra):
     if compra.estado_compra == 'cancelada':
         return 'cancelado'
-    
+
     if compra.saldo_pendiente == 0:
         return 'pagado'
-    
+
     if 0 < compra.saldo_pendiente < compra.total:
         return 'parcial'
-    
-    return 'pendiente'  # compra sin pagos
+
+    return 'pendiente'
 
 
-# ----------------------
-# Automatizaciones sobre Compras
-# ----------------------
-
-# Al cancelar una compra
 def cancelar_compra(compra):
     proveedor = compra.proveedor
     proveedor.saldo_contacto -= compra.total
-    if hasattr(proveedor, 'save'):
-        proveedor.save(update_fields=['saldo_contacto'])
-    
+    proveedor.save(update_fields=['saldo_contacto'])
+
     compra.saldo_pendiente = 0
     compra.estado_compra = 'cancelada'
     compra.estado_pago = recalcular_estado_pago(compra)
-    if hasattr(compra, 'save'):
-        compra.save(update_fields=['saldo_pendiente', 'estado_compra', 'estado_pago'])
+    compra.save(update_fields=['saldo_pendiente', 'estado_compra', 'estado_pago'])
 
 
-# Al cancelar un pedido de compra: desvincular ventas
-def cancelar_pedido_compra(pedido_compra):
-    ventas_vinculadas = pedido_compra.ventas.all()
-    for venta in ventas_vinculadas:
-        venta.pedido_compra = None
-        venta.save(update_fields=['pedido_compra'])
-
-
-# ----------------------
-# Automatizaciones sobre Pagos
-# ----------------------
-
-# Al crear un pago
 def saldos_al_crear_pago(pago):
     contacto = pago.proveedor
     contacto.saldo_contacto -= pago.monto
-    if hasattr(contacto, 'save'):
-        contacto.save(update_fields=['saldo_contacto'])
-    
+    contacto.save(update_fields=['saldo_contacto'])
+
     pago.saldo_disponible = pago.monto
-    if hasattr(pago, 'save'):
-        pago.save(update_fields=['saldo_disponible'])
+    pago.save(update_fields=['saldo_disponible'])
 
 
-# Al aplicar un pago a una compra
 def saldo_al_crear_pago_detalle(detalle):
     compra = detalle.compra
     pago = detalle.pago
-    
-    compra.saldo_pendiente -= detalle.monto_aplicado
-    if hasattr(compra, 'save'):
-        compra.save(update_fields=['saldo_pendiente'])
-    
-    pago.saldo_disponible -= detalle.monto_aplicado
-    if hasattr(pago, 'save'):
-        pago.save(update_fields=['saldo_disponible'])
 
-# Recalcular estado de pago de las compras afectadas
+    compra.saldo_pendiente -= detalle.monto_aplicado
+    compra.save(update_fields=['saldo_pendiente'])
+
+    pago.saldo_disponible -= detalle.monto_aplicado
+    pago.save(update_fields=['saldo_disponible'])
+
+
 def actualizar_estado_compras_al_pagar(pago):
     compras = {detalle.compra for detalle in pago.detalles.all()}
     for compra in compras:
-        nuevo_estado = recalcular_estado_pago(compra)
-        compra.estado_pago = nuevo_estado
-        if hasattr(compra, 'save'):
-            compra.save(update_fields=['estado_pago'])
+        compra.estado_pago = recalcular_estado_pago(compra)
+        compra.save(update_fields=['estado_pago'])
 
 
 def recalcular_precios_producto(producto):
     precios = calcular_precios_producto(producto.precio_compra)
-    
+
     for campo, valor in precios.items():
         setattr(producto, campo, valor)
-        
+
     producto.save(update_fields=list(precios.keys()))
 
-def aplicar_nota_credito(nota_credito):
-    """
-    Aplica el impacto contable de una nota de crédito ya creada
-    (se asume que detalles y aplicaciones existen).
-    """
 
-    # 1. Impacto en documentos
+def aplicar_nota_credito(nota_credito):
     for aplicacion in nota_credito.aplicaciones.all():
         documento = aplicacion.compra or aplicacion.venta
 
@@ -246,106 +160,18 @@ def aplicar_nota_credito(nota_credito):
             documento.save(update_fields=[
                 'saldo_pendiente',
                 'estado_cobro',
-                'estado_venta'
+                'estado_venta',
             ])
         else:
             documento.estado_pago = recalcular_estado_pago(documento)
             documento.save(update_fields=[
                 'saldo_pendiente',
-                'estado_pago'
+                'estado_pago',
             ])
 
-
-    # 2. Impacto en contacto
     contacto = nota_credito.contacto
     contacto.saldo_contacto -= nota_credito.total
     contacto.save(update_fields=['saldo_contacto'])
 
-    # 3. Estado de la nota de crédito
     nota_credito.estado = 'aplicada'
     nota_credito.save(update_fields=['estado'])
-
-
-def generar_pedido_compra_automatico(fecha_entrega, proveedor_nombre="Avícola del Atlantico"):
-    from core.models import Contactos, PedidosCompras, PedidosComprasDetalle, Ventas
-
-    proveedor = Contactos.objects.filter(
-        tipo='proveedor',
-        nombre__iexact=proveedor_nombre,
-    ).first()
-    if not proveedor:
-        raise ValueError(
-            f"No existe el proveedor '{proveedor_nombre}'."
-        )
-
-    observacion_automatica = (
-        f"Generado automaticamente para entregas del {fecha_entrega:%d/%m/%Y}."
-    )
-
-    pedido = PedidosCompras.objects.filter(
-        proveedor=proveedor,
-        fecha_pedido=fecha_entrega,
-        estado='pendiente',
-        observaciones=observacion_automatica,
-    ).first()
-
-    if not pedido:
-        pedido = PedidosCompras.objects.create(
-            proveedor=proveedor,
-            fecha_pedido=fecha_entrega,
-            estado='pendiente',
-            observaciones=observacion_automatica,
-        )
-        creado = True
-    else:
-        creado = False
-
-    ventas = list(
-        Ventas.objects.filter(
-            fecha_entrega=fecha_entrega,
-            estado_venta__in=['en proceso', 'completada'],
-        )
-        .exclude(estado_entrega='cancelada')
-        .filter(pedido_compra__isnull=True) | Ventas.objects.filter(pedido_compra=pedido)
-    )
-
-    ventas = list(OrderedDict((venta.id, venta) for venta in ventas).values())
-
-    if not ventas:
-        if creado:
-            pedido.delete()
-        raise ValueError(
-            f"No hay ventas pendientes para consolidar en la fecha {fecha_entrega:%d/%m/%Y}."
-        )
-
-    acumulado = OrderedDict()
-    for venta in ventas:
-        for detalle in venta.detalles.select_related('producto').all():
-            producto_id = detalle.producto_id
-            if producto_id not in acumulado:
-                acumulado[producto_id] = {
-                    'producto': detalle.producto,
-                    'cantidad': Decimal('0.00'),
-                    'precio_unitario': detalle.producto.precio_compra,
-                }
-            acumulado[producto_id]['cantidad'] += detalle.cantidad
-
-    pedido.detalles.all().delete()
-    nuevos_detalles = []
-    for item in acumulado.values():
-        nuevos_detalles.append(
-            PedidosComprasDetalle(
-                pedido_compra=pedido,
-                producto=item['producto'],
-                cantidad=item['cantidad'],
-                precio_unitario=item['precio_unitario'],
-            )
-        )
-    PedidosComprasDetalle.objects.bulk_create(nuevos_detalles)
-
-    Ventas.objects.filter(id__in=[venta.id for venta in ventas]).update(pedido_compra=pedido)
-
-    pedido.subtotal = calcular_subtotal(pedido.detalles.all())
-    pedido.save(update_fields=['subtotal'])
-
-    return pedido, creado, len(ventas)

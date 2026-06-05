@@ -60,6 +60,10 @@ def test_pago_valido_pasa():
     assert validar_pago({'monto': 100}, detalles) is True
 
 
+def test_pago_manual_sin_detalles_pasa():
+    assert validar_pago({'monto': 100}, []) is True
+
+
 # =====================================================
 # VALIDAR ACTUALIZACIÓN DE PAGO
 # =====================================================

@@ -60,6 +60,10 @@ def test_cobro_valido_pasa():
     assert validar_cobro({'monto': 100}, detalles) is True
 
 
+def test_cobro_manual_sin_detalles_pasa():
+    assert validar_cobro({'monto': 100}, []) is True
+
+
 # =====================================================
 # VALIDAR ACTUALIZACIÓN DE COBRO
 # =====================================================

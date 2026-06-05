@@ -1,410 +1,132 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import Button from "../components/ui/Button";
-import SearchableSelect from "../components/ui/SearchableSelect";
-import { getContactos } from "../services/api/contactos";
-import { getProductos } from "../services/api/productos";
-import { getPedidoCompra, getPedidosCompras } from "../services/api/pedidosCompras";
-import { createCompra } from "../services/api/compras";
+import { useState } from "react";
+import { FunnelIcon, PlusIcon, EyeIcon } from "@heroicons/react/24/outline";
+import ButtonDef from "../components/ui/Button";
+import ModalNuevaCompra from "../components/layout/ModalNuevaCompra";
+
+const estadoBadge = {
+  Pendiente: "bg-yellow-900/40 text-yellow-300 border border-yellow-800/60",
+  Completada: "bg-green-900/40 text-green-300 border border-green-800/60",
+  Cancelada: "bg-red-900/30 text-red-300 border border-red-800/60",
+};
+
+const comprasData = [
+  {
+    numero: "12345",
+    proveedor: "Proveedor XYZ",
+    fecha: "2024-06-01",
+    total: "$1,000.00",
+    estado: "Pendiente",
+  },
+  {
+    numero: "12346",
+    proveedor: "Proveedor ABC",
+    fecha: "2024-06-02",
+    total: "$500.00",
+    estado: "Completada",
+  },
+  {
+    numero: "12347",
+    proveedor: "Distribuidora Sur",
+    fecha: "2024-06-03",
+    total: "$2,340.00",
+    estado: "Cancelada",
+  },
+];
 
 export default function Compras() {
-  const [searchParams] = useSearchParams();
-  const pedidoParam = searchParams.get("pedido");
-
-  const [proveedorId, setProveedorId] = useState("");
-  const [proveedores, setProveedores] = useState([]);
-  const [productos, setProductos] = useState([]);
-  const [pedidosValidos, setPedidosValidos] = useState([]);
-  const [pedidoCompraId, setPedidoCompraId] = useState(pedidoParam || "");
-  const [observaciones, setObservaciones] = useState("");
-  const [numeroDocumento, setNumeroDocumento] = useState("");
-  const [extra, setExtra] = useState("");
-  const [descuento, setDescuento] = useState("");
-  const [loadError, setLoadError] = useState("");
-  const [submitError, setSubmitError] = useState("");
-  const [submitOk, setSubmitOk] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [items, setItems] = useState([]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [proveedoresData, productosData, pedidosData] = await Promise.all([
-          getContactos({ tipo: "proveedor" }),
-          getProductos(),
-          getPedidosCompras(),
-        ]);
-        setProveedores(proveedoresData || []);
-        setProductos(productosData || []);
-        setPedidosValidos(
-          (pedidosData || []).filter((pedido) => pedido.estado === "validado")
-        );
-      } catch (error) {
-        setLoadError(error?.message || "No se pudieron cargar los datos.");
-      }
-    };
-    loadData();
-  }, []);
-
-  const productosById = useMemo(() => {
-    return productos.reduce((acc, current) => {
-      acc[String(current.id)] = current;
-      return acc;
-    }, {});
-  }, [productos]);
-
-  const productoOptions = useMemo(
-    () =>
-      productos.map((producto) => ({
-        value: String(producto.id),
-        label: producto.nombre,
-      })),
-    [productos]
-  );
-
-  const hydrateFromPedido = (pedido) => {
-    setPedidoCompraId(String(pedido.id));
-    setProveedorId(String(pedido.proveedor));
-    setObservaciones(pedido.observaciones || "");
-    const detallesFormateados = (pedido.detalles || []).map((detalle) => ({
-      producto: String(detalle.producto),
-      cantidad: detalle.cantidad,
-      precioUnitario: detalle.precio_unitario,
-    }));
-    setItems(detallesFormateados);
-  };
-
-  useEffect(() => {
-    if (!pedidoParam) return;
-    const loadPedido = async () => {
-      try {
-        const pedido = await getPedidoCompra(pedidoParam);
-        if (pedido?.estado !== "validado") {
-          setLoadError("El pedido seleccionado no esta validado.");
-          return;
-        }
-        hydrateFromPedido(pedido);
-      } catch (error) {
-        setLoadError(error?.message || "No se pudo cargar el pedido.");
-      }
-    };
-    loadPedido();
-  }, [pedidoParam]);
-
-  const handlePedidoChange = async (nextId) => {
-    setSubmitError("");
-    setSubmitOk("");
-    if (!nextId) {
-      setPedidoCompraId("");
-      setProveedorId("");
-      setObservaciones("");
-      setItems([]);
-      return;
-    }
-    try {
-      const pedido = await getPedidoCompra(nextId);
-      if (pedido?.estado !== "validado") {
-        setSubmitError("Solo se pueden usar pedidos validados.");
-        return;
-      }
-      hydrateFromPedido(pedido);
-    } catch (error) {
-      setSubmitError(error?.message || "No se pudo cargar el pedido.");
-    }
-  };
-
-  const handleAddItem = () => {
-    setItems((prev) => [
-      ...prev,
-      { cantidad: "", producto: "", precioUnitario: "" },
-    ]);
-  };
-
-  const handleItemChange = (index, field, value) => {
-    setItems((prev) =>
-      prev.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item
-      )
-    );
-  };
-
-  const handleRemoveItem = (index) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleProductoChange = (index, productoId) => {
-    const productoData = productosById[String(productoId)];
-    const precioDefault = productoData?.precio_compra
-      ? String(productoData.precio_compra)
-      : "";
-    setItems((prev) =>
-      prev.map((item, i) =>
-        i === index
-          ? { ...item, producto: productoId, precioUnitario: precioDefault }
-          : item
-      )
-    );
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setSubmitError("");
-    setSubmitOk("");
-
-    if (!proveedorId) {
-      setSubmitError("Selecciona un proveedor.");
-      return;
-    }
-    if (items.length === 0) {
-      setSubmitError("Agrega al menos un producto.");
-      return;
-    }
-
-    const detalles = items.map((item) => ({
-      producto: item.producto,
-      cantidad: item.cantidad,
-      precio_unitario: item.precioUnitario,
-    }));
-
-    const hayVacios = detalles.some(
-      (detalle) =>
-        !detalle.producto ||
-        !detalle.cantidad ||
-        !detalle.precio_unitario
-    );
-    if (hayVacios) {
-      setSubmitError("Completa producto, cantidad y precio unitario.");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      const payload = {
-        proveedor: Number(proveedorId),
-        detalles,
-      };
-      if (pedidoCompraId) {
-        payload.pedido_compra = Number(pedidoCompraId);
-      }
-      if (observaciones.trim()) {
-        payload.observaciones = observaciones.trim();
-      }
-      if (numeroDocumento.trim()) {
-        payload.numero_documento = numeroDocumento.trim();
-      }
-      if (extra !== "") {
-        payload.extra = extra;
-      }
-      if (descuento !== "") {
-        payload.descuento = descuento;
-      }
-      const response = await createCompra(payload);
-      setSubmitOk(`Compra #${response?.id || ""} guardada.`);
-      setItems([]);
-      setObservaciones("");
-      setNumeroDocumento("");
-      setExtra("");
-      setDescuento("");
-      setPedidoCompraId("");
-      setProveedorId("");
-    } catch (error) {
-      setSubmitError(error?.message || "No se pudo guardar la compra.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="mx-auto bg-neutral-300 mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Nueva compra</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        Carga de compras a proveedores.
-      </p>
+    <div className="space-y-4">
+      {/* Acciones */}
+      <div className="flex items-center justify-end gap-2">
+        <ButtonDef
+          leftIcon={FunnelIcon}
+          text="Filtros"
+          variant="ghost"
+          size="sm"
+        />
+        <ButtonDef
+          leftIcon={PlusIcon}
+          text="Nueva Compra"
+          variant="secondary"
+          size="sm"
+          onClick={() => setOpen(true)}
+        />
+      </div>
 
-      <form
-        className="mt-4 space-y-4 rounded-xl pedidos-shadow p-4"
-        onSubmit={handleSubmit}
-      >
-        {loadError ? (
-          <p className="text-sm text-red-600">{loadError}</p>
-        ) : null}
-        {submitError ? (
-          <p className="text-sm text-red-600">{submitError}</p>
-        ) : null}
-        {submitOk ? (
-          <p className="text-sm text-green-700">{submitOk}</p>
-        ) : null}
+      {/* Tabla */}
+      <div className="rounded-xl border border-stone-800 overflow-hidden shadow-lg">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="bg-stone-900/60 border-b border-stone-800">
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                N° Compra
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                Proveedor
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                Fecha
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                Total
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                Estado
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-stone-400 text-right">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-800/60">
+            {comprasData.map((compra) => (
+              <tr
+                key={compra.numero}
+                className="bg-[#111111] hover:bg-[#1a1a1a] transition-colors duration-200 group"
+              >
+                <td className="px-4 py-3 text-stone-300 font-mono text-xs">
+                  #{compra.numero}
+                </td>
+                <td className="px-4 py-3 text-white font-medium">
+                  {compra.proveedor}
+                </td>
+                <td className="px-4 py-3 text-stone-400">{compra.fecha}</td>
+                <td className="px-4 py-3 text-white font-semibold">
+                  {compra.total}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      estadoBadge[compra.estado] ?? "bg-stone-800 text-stone-300 border border-stone-700"
+                    }`}
+                  >
+                    {compra.estado}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <ButtonDef
+                    leftIcon={EyeIcon}
+                    text="Ver"
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-        <div>
-          <label className="text-sm font-medium text-gray-700">
-            Pedido de compra (validado)
-          </label>
-          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
-            <select
-              className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-              value={pedidoCompraId}
-              onChange={(event) => handlePedidoChange(event.target.value)}
-            >
-              <option value="">Sin pedido asociado</option>
-              {pedidosValidos.map((pedido) => (
-                <option key={pedido.id} value={pedido.id}>
-                  Pedido #{pedido.id}
-                </option>
-              ))}
-            </select>
+        {comprasData.length === 0 && (
+          <div className="py-16 text-center text-stone-500 text-sm bg-[#111111]">
+            No hay compras registradas.
           </div>
-        </div>
+        )}
+      </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-700">
-            Proveedor
-          </label>
-          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
-            <select
-              className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-              value={proveedorId}
-              onChange={(event) => setProveedorId(event.target.value)}
-              disabled={Boolean(pedidoCompraId)}
-            >
-              <option value="">Seleccionar proveedor</option>
-              {proveedores.map((proveedor) => (
-                <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {items.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Agrega productos para completar la compra.
-            </p>
-          ) : null}
-          {items.map((item, index) => (
-            <div
-              key={`item-${index}`}
-              className="space-y-3 rounded-md border-t border-b border-gray-500 py-4"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">
-                  Producto {index + 1}
-                </span>
-                <Button
-                  type="button"
-                  className="text-sm text-red-600 hover:text-red-700"
-                  onClick={() => handleRemoveItem(index)}
-                >
-                  Quitar
-                </Button>
-              </div>
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-700">
-                  Cantidad
-                </label>
-                <input
-                  type="number"
-                  placeholder="Cantidad"
-                  className="mt-1 rounded-lg p-2 text-sm input-shadow bg-neutral-300"
-                  value={item.cantidad}
-                  onChange={(event) =>
-                    handleItemChange(index, "cantidad", event.target.value)
-                  }
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-700">Producto</label>
-                <SearchableSelect
-                  options={productoOptions}
-                  value={item.producto}
-                  onChange={(value) => handleProductoChange(index, value)}
-                  placeholder="Buscar producto"
-                  wrapperClassName="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300 space-y-2"
-                  inputClassName="w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
-                  selectClassName="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-700">Precio unitario</label>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  className="mt-1 w-full rounded-lg p-2 text-sm input-shadow bg-neutral-300"
-                  value={item.precioUnitario}
-                  onChange={(event) =>
-                    handleItemChange(index, "precioUnitario", event.target.value)
-                  }
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Extra</label>
-            <input
-              type="number"
-              className="mt-1 w-full rounded-lg p-2 text-sm input-shadow bg-neutral-300"
-              value={extra}
-              onChange={(event) => setExtra(event.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Descuento</label>
-            <input
-              type="number"
-              className="mt-1 w-full rounded-lg p-2 text-sm input-shadow bg-neutral-300"
-              value={descuento}
-              onChange={(event) => setDescuento(event.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-gray-700">
-            Numero documento
-          </label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-lg p-2 text-sm input-shadow bg-neutral-300"
-            value={numeroDocumento}
-            onChange={(event) => setNumeroDocumento(event.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-gray-700">
-            Observaciones
-          </label>
-          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
-            <textarea
-              placeholder="Observaciones"
-              className="w-full bg-transparent rounded-lg focus:outline-none"
-              rows={3}
-              value={observaciones}
-              onChange={(event) => setObservaciones(event.target.value)}
-            />
-          </div>
-        </div>
-
-        <Button
-          type="button"
-          className="w-full rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          onClick={handleAddItem}
-        >
-          Agregar producto
-        </Button>
-        <Button
-          type="submit"
-          className="w-full rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Guardando..." : "Guardar compra"}
-        </Button>
-      </form>
+      <ModalNuevaCompra isOpen={open} onClose={() => setOpen(false)} />
     </div>
   );
 }
-

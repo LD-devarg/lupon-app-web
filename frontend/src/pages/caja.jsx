@@ -44,66 +44,51 @@ export default function Caja() {
 
   const getToggleClass = (isActive) =>
     [
-      "w-full rounded-lg px-3 py-2 text-sm font-medium",
-      "neuro-shadow-button",
-      isActive ? "bg-neutral-200 text-gray-800" : "bg-neutral-300 text-gray-700",
+      "relative overflow-hidden rounded-[1rem] px-4 py-2.5 text-sm font-semibold transition",
+      isActive
+        ? "bg-[linear-gradient(135deg,#2563eb,#3b82f6)] text-white shadow-[0_20px_40px_-22px_rgba(37,99,235,0.95)]"
+        : "bg-white/70 text-slate-700 shadow-[0_14px_32px_-28px_rgba(15,23,42,0.7)] hover:text-slate-900",
     ].join(" ");
 
   return (
-    <div className="mx-auto mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Caja</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        Selecciona el movimiento y la vista para operar.
-      </p>
+    <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-2 text-center">
+      <div className="rounded-[2rem] border border-white/70 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(241,245,249,0.95)_52%,_rgba(226,232,240,0.92))] px-4 py-5 shadow-[0_35px_100px_-50px_rgba(15,23,42,0.5)] md:px-6 md:py-6">
+        <div className="mx-auto max-w-3xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-sky-600">Caja</p>
+        </div>
 
-      <div className="mt-4 space-y-3 rounded-xl pedidos-shadow p-4 text-left">
-        <div>
-          <p className="text-sm font-medium text-gray-700">Movimiento</p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              className={getToggleClass(tipo === "cobro")}
-              onClick={() => handleSetTipo("cobro")}
-            >
-              Cobros
-            </Button>
-            <Button
-              type="button"
-              className={getToggleClass(tipo === "pago")}
-              onClick={() => handleSetTipo("pago")}
-            >
-              Pagos
-            </Button>
+        <div className="mx-auto mt-2 max-w-4xl rounded-[1.5rem] border border-white/80 bg-white/65 p-2.5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.7)]">
+          <div className="grid gap-2 md:grid-cols-2">
+            <div className="rounded-[1.2rem] bg-slate-100/90 p-1.5">
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" className={getToggleClass(tipo === "cobro")} onClick={() => handleSetTipo("cobro")}>
+                  Cobros
+                </Button>
+                <Button type="button" className={getToggleClass(tipo === "pago")} onClick={() => handleSetTipo("pago")}>
+                  Pagos
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-[1.2rem] bg-slate-100/90 p-1.5">
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" className={getToggleClass(vista === "nuevo")} onClick={() => handleSetVista("nuevo")}>
+                  Nuevo
+                </Button>
+                <Button type="button" className={getToggleClass(vista === "listado")} onClick={() => handleSetVista("listado")}>
+                  Listado
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-gray-700">Vista</p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              className={getToggleClass(vista === "nuevo")}
-              onClick={() => handleSetVista("nuevo")}
-            >
-              Nuevo
-            </Button>
-            <Button
-              type="button"
-              className={getToggleClass(vista === "listado")}
-              onClick={() => handleSetVista("listado")}
-            >
-              Listado
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      <div className="mt-4">
-        {tipo === "cobro" && vista === "nuevo" ? <Cobros /> : null}
-        {tipo === "cobro" && vista === "listado" ? <CobrosListado /> : null}
-        {tipo === "pago" && vista === "nuevo" ? <Pagos /> : null}
-        {tipo === "pago" && vista === "listado" ? <PagosListado /> : null}
+        <div className="mt-2 text-left">
+          {tipo === "cobro" && vista === "nuevo" ? <Cobros /> : null}
+          {tipo === "cobro" && vista === "listado" ? <CobrosListado /> : null}
+          {tipo === "pago" && vista === "nuevo" ? <Pagos /> : null}
+          {tipo === "pago" && vista === "listado" ? <PagosListado /> : null}
+        </div>
       </div>
     </div>
   );
 }
-

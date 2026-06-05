@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Button from "../components/ui/Button";
+import SearchableSelect from "../components/ui/SearchableSelect";
 import { getContactos } from "../services/api/contactos";
 import { getCompras } from "../services/api/compras";
 import { addDetallesPago, getPago, getPagos } from "../services/api/pagos";
@@ -93,6 +94,22 @@ export default function PagosListado() {
   const capitalize = (value) => {
     if (!value) return "";
     return value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const comprasDisponiblesProveedorOptions = useMemo(
+    () =>
+      comprasDisponiblesProveedor.map((compra) => ({
+        value: String(compra.id),
+        label: `Compra #${compra.id} - ${compra.fecha_compra} - ${formatArs(compra.saldo_pendiente)}`,
+      })),
+    [comprasDisponiblesProveedor]
+  );
+
+  const getMediosLabel = (pago) => {
+    if (Array.isArray(pago.medios_pago) && pago.medios_pago.length > 0) {
+      return pago.medios_pago.map((item) => capitalize(item.medio_pago)).join(" + ");
+    }
+    return capitalize(pago.medio_pago_resumen || pago.medio_pago);
   };
 
   const filteredPagos = useMemo(() => {
@@ -275,7 +292,7 @@ export default function PagosListado() {
                 Pago #{pago.id}
               </span>
               <span className="text-xs rounded-full bg-neutral-300 px-2 py-1 text-gray-700">
-                {capitalize(pago.medio_pago)}
+                {getMediosLabel(pago)}
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-700">
@@ -361,21 +378,14 @@ export default function PagosListado() {
                   <div className="mt-2 space-y-2">
                     <div className="flex flex-col">
                       <label className="text-sm font-medium text-gray-700">Compra</label>
-                      <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-200">
-                        <select
-                          className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+                      <div className="mt-1">
+                        <SearchableSelect
+                          options={comprasDisponiblesProveedorOptions}
                           value={detalle.compra}
-                          onChange={(event) =>
-                            handleDetalleChange(index, "compra", event.target.value)
-                          }
-                        >
-                          <option value="">Seleccionar compra</option>
-                          {comprasDisponiblesProveedor.map((compra) => (
-                            <option key={compra.id} value={compra.id}>
-                              Compra #{compra.id} - {compra.fecha_compra}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(value) => handleDetalleChange(index, "compra", value)}
+                          placeholder="Buscar compra"
+                          noOptionsText="Sin compras pendientes"
+                        />
                       </div>
                       {detalle.compra ? (
                         <p className="mt-1 text-xs text-gray-600">

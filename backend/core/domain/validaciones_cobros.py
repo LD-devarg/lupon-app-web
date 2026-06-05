@@ -31,7 +31,7 @@ def validar_actualizacion_cobro(cobro, validated_data, detalles_data):
 
 def validar_detalles_cobro(detalles_data):
     if detalles_data == []:
-        raise ValidationError("Debe haber al menos un detalle de cobro.")
+        return True
     
     for d in detalles_data:
         venta = d["venta"]
@@ -53,3 +53,6 @@ def validar_detalles_cobro(detalles_data):
             )
 
     return True
+
+
+validar_detalles = validar_detalles_cobro

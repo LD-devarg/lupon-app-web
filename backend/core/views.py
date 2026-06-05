@@ -9,15 +9,17 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django.db.models import Sum, Count, Max, Q, F
+from django.db.models.functions import Coalesce
 from datetime import datetime, timedelta
-from .models import Usuarios, Contactos, Productos, PedidosVentas, PedidosVentasDetalle, Ventas, VentasDetalle, Cobros, CobrosDetalle, PedidosCompras, PedidosComprasDetalle, Compras, ComprasDetalle, Pagos, PagosDetalle, NotasCredito, NotasCreditoDetalle
-from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, PedidosVentasSerializer, PedidosVentasDetalleSerializer, VentasSerializer, CambiarEstadoVentaSerializer, NuevaFechaEntregaSerializer, VentasDetalleSerializer, CancelarPedidoVentaSerializer, CobrosSerializer, CobrosDetalleSerializer, PedidosComprasSerializer, PedidosComprasDetalleSerializer, CancelarVentaSerializer, ComprasSerializer, ComprasDetalleSerializer, CambiarEstadoCompraSerializer, CancelarCompraSerializer, PagosSerializer, PagosDetalleSerializer, NotasCreditoSerializer, GenerarPedidoCompraAutomaticoSerializer, ReordenarEntregasSerializer
+from .models import Usuarios, Contactos, Productos, Ventas, VentasDetalle, Cobros, CobrosDetalle, CobrosMedioPago, Compras, ComprasDetalle, Pagos, PagosDetalle, PagosMedioPago, NotasCredito, NotasCreditoDetalle
+from .serializers import UsuariosSerializer, ResetearContrasenaSerializer, CambiarContrasenaSerializer, CambiarEmailSerializer, CambiarEstadoUsuarioSerializer, ContactosSerializer, ProductosSerializer, VentasSerializer, CambiarEstadoVentaSerializer, VentasDetalleSerializer, CancelarVentaSerializer, CobrosSerializer, CobrosDetalleSerializer, ComprasSerializer, ComprasDetalleSerializer, CambiarEstadoCompraSerializer, CancelarCompraSerializer, PagosSerializer, PagosDetalleSerializer, NotasCreditoSerializer
 from .domain.logica import calcular_precios_producto, calcular_subtotal
-from .domain.validaciones_ventas import validar_cambio_estado_venta, validar_cambio_estado_pedido_venta, validar_cambio_estado_entrega
+from .domain.validaciones_ventas import validar_cambio_estado_venta
 from .domain.validaciones_usuarios import validar_cambio_estado_usuario, validar_cambio_contrasena, validar_cambio_email
-from .domain.validaciones_compras import validar_cambio_estado_compra, validar_modificacion_pedido_compra
-from .servicios.automatizaciones import completar_pedido_venta_al_entregar, cancelar_compra, recalcular_estado_pago, recalcular_estado_venta, recalcular_precios_producto, cancelar_venta_domain, generar_pedido_compra_automatico
+from .domain.validaciones_compras import validar_cambio_estado_compra
+from .servicios.automatizaciones import cancelar_compra, recalcular_estado_pago, recalcular_precios_producto, cancelar_venta_domain
 from decimal import Decimal
+
 # ============================================================
 # ViewSets
 # ============================================================
@@ -33,9 +35,6 @@ class UsuariosViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return super().get_permissions()
 
-    # ============================
-    # Cambiar estado del usuario
-    # ============================
     @action(detail=True, methods=['post'], serializer_class=CambiarEstadoUsuarioSerializer)
     def cambiar_estado(self, request, pk=None):
         usuario_objetivo = self.get_object()
@@ -47,11 +46,7 @@ class UsuariosViewSet(viewsets.ModelViewSet):
         nuevo_estado = serializer.validated_data['activo']
 
         try:
-            validar_cambio_estado_usuario(
-                usuario_actor,
-                usuario_objetivo,
-                nuevo_estado
-            )
+            validar_cambio_estado_usuario(usuario_actor, usuario_objetivo, nuevo_estado)
         except ValidationError as e:
             return Response({"error": str(e)}, status=400)
 
@@ -60,9 +55,6 @@ class UsuariosViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "Estado del usuario actualizado correctamente."})
 
-    # ============================
-    # Cambiar contraseña (usuario)
-    # ============================
     @action(detail=True, methods=['post'], serializer_class=CambiarContrasenaSerializer)
     def cambiar_password(self, request, pk=None):
         usuario_objetivo = self.get_object()
@@ -76,13 +68,7 @@ class UsuariosViewSet(viewsets.ModelViewSet):
         password_confirmacion = serializer.validated_data['password_confirmacion']
 
         try:
-            validar_cambio_contrasena(
-                usuario_objetivo,
-                usuario_actor,
-                password_actual,
-                password_nueva,
-                password_confirmacion
-            )
+            validar_cambio_contrasena(usuario_objetivo, usuario_actor, password_actual, password_nueva, password_confirmacion)
         except ValidationError as e:
             return Response({"error": str(e)}, status=400)
 
@@ -92,19 +78,13 @@ class UsuariosViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "Contraseña actualizada correctamente."})
 
-    # ============================
-    # Resetear contraseña (admin)
-    # ============================
     @action(detail=True, methods=['post'], serializer_class=ResetearContrasenaSerializer)
     def resetear_password(self, request, pk=None):
         usuario_objetivo = self.get_object()
         usuario_actor = request.user.usuarios
 
         if not usuario_actor.es_admin:
-            return Response(
-                {"error": "Solo los administradores pueden resetear contraseñas."},
-                status=403
-            )
+            return Response({"error": "Solo los administradores pueden resetear contraseñas."}, status=403)
 
         serializer = ResetearContrasenaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -117,9 +97,6 @@ class UsuariosViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "Contraseña reseteada correctamente."})
 
-    # ============================
-    # Cambiar email
-    # ============================
     @action(detail=True, methods=['post'], serializer_class=CambiarEmailSerializer)
     def cambiar_email(self, request, pk=None):
         usuario_objetivo = self.get_object()
@@ -131,11 +108,7 @@ class UsuariosViewSet(viewsets.ModelViewSet):
         nuevo_email = serializer.validated_data['nuevo_email']
 
         try:
-            validar_cambio_email(
-                usuario_objetivo,
-                usuario_actor,
-                nuevo_email
-            )
+            validar_cambio_email(usuario_objetivo, usuario_actor, nuevo_email)
         except ValidationError as e:
             return Response({"error": str(e)}, status=400)
 
@@ -150,19 +123,16 @@ class UsuariosViewSet(viewsets.ModelViewSet):
 class ContactosViewSet(viewsets.ModelViewSet):
     serializer_class = ContactosSerializer
     queryset = Contactos.objects.all()
-    
-    # Filtrado por tipo de contacto, categoría, o forma de pago, busqueda por nombre
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
-
         params = self.request.query_params
 
         tipo = params.get('tipo', None)
         categoria = params.get('categoria', None)
         forma_pago = params.get('forma_pago', None)
         nombre = params.get('nombre', None)
-        
+
         if tipo:
             queryset = queryset.filter(tipo=tipo)
         if categoria:
@@ -171,7 +141,7 @@ class ContactosViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(forma_pago=forma_pago)
         if nombre:
             queryset = queryset.filter(nombre__icontains=nombre)
-            
+
         return queryset
 
 # Productos
@@ -179,294 +149,107 @@ class ContactosViewSet(viewsets.ModelViewSet):
 class ProductosViewSet(viewsets.ModelViewSet):
     serializer_class = ProductosSerializer
     queryset = Productos.objects.all()
-    
-    # Filtrado por busqueda por nombre
+
     def get_queryset(self):
         queryset = super().get_queryset()
         nombre = self.request.query_params.get('nombre', None)
-        
+
         if nombre:
             queryset = queryset.filter(nombre__icontains=nombre)
 
         return queryset
-    
+
     def perform_create(self, serializer):
         producto = serializer.save()
         recalcular_precios_producto(producto)
-        
+
     def perform_update(self, serializer):
         producto = serializer.save()
         recalcular_precios_producto(producto)
-            
         producto.save()
-    
-# Pedidos de Ventas
 
-class PedidosVentasViewSet(viewsets.ModelViewSet):
-    serializer_class = PedidosVentasSerializer
-    queryset = PedidosVentas.objects.all()
-    
-    # Filtrado por estado o busqueda por cliente
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        estado = self.request.query_params.get('estado', None)
-        cliente = self.request.query_params.get('cliente', None)
-        
-        if estado:
-            queryset = queryset.filter(estado=estado.lower())
-        if cliente:
-            queryset = queryset.filter(cliente__nombre__icontains=cliente)
-            
-        return queryset
-    # Cancelar pedido de venta
-    @action(detail=True, methods=['post'], serializer_class=CancelarPedidoVentaSerializer)
-    def cancelar_pedido(self, request, pk=None):
-        pedido_venta = self.get_object()
-        estado_actual = pedido_venta.estado
-        nuevo_estado = 'cancelado'
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        #validar con cambio de estado de pedido de venta
-        try:
-            validar_cambio_estado_pedido_venta(pedido_venta, nuevo_estado)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=400)
-        
-        motivo_cancelacion = serializer.validated_data['motivo_cancelacion']
-        fecha_cancelacion = serializer.validated_data.get('fecha_cancelacion', None)        
-        
-        pedido_venta.estado = 'cancelado'
-        pedido_venta.motivo_cancelacion = motivo_cancelacion
-        pedido_venta.fecha_cancelacion = fecha_cancelacion
-        pedido_venta.save(update_fields=['estado', 'motivo_cancelacion', 'fecha_cancelacion'])
-        return Response({"status": "Pedido cancelado correctamente."})
-    
-    @action(detail=True, methods=['delete'], url_path='detalles/(?P<detalle_id>[^/.]+)')
-    def eliminar_detalle(self, request, pk=None, detalle_id=None):
-        pedido_venta = self.get_object()
-        
-        if pedido_venta.estado != 'pendiente':
-            return Response({"error": "No se pueden eliminar detalles de un Pedido de Venta que no esté en estado 'Pendiente'."}, status=400)
-              
-        try:
-            detalle = pedido_venta.detalles.get(id=detalle_id)
-        except PedidosVentasDetalle.DoesNotExist:
-            return Response({"error": "Detalle no encontrado para este pedido de venta."}, status=404)
-        
-        detalle.delete()
-        
-        nuevo_subtotal = calcular_subtotal(pedido_venta.detalles.all())
-        pedido_venta.subtotal = nuevo_subtotal
-        pedido_venta.save(update_fields=['subtotal'])
-        
-        return Response({"status": "Detalle eliminado correctamente.",
-                         "nuevo_subtotal": str(nuevo_subtotal),
-                         "detalles_restantes": PedidosVentasDetalleSerializer(pedido_venta.detalles.all(), many=True).data
-                        })
-    
-    @action(detail=True, methods=['post'], url_path='detalles')
-    def agregar_detalle(self, request, pk=None,):
-        
-        pedido_venta = self.get_object()
-        
-        if pedido_venta.estado != 'pendiente':
-            return Response({"error": "No se pueden agregar detalles a un Pedido de Venta que no esté en estado 'Pendiente'."}, status=400)
-        
-        serializer = PedidosVentasDetalleSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        detalle = serializer.save(pedido_venta=pedido_venta)
-        
-        nuevo_subtotal = calcular_subtotal(pedido_venta.detalles.all())
-        pedido_venta.subtotal = nuevo_subtotal
-        pedido_venta.save()
-        
-        return Response({"status": "Detalle agregado correctamente.",
-                         "nuevo_subtotal": str(nuevo_subtotal),
-                         "detalle": PedidosVentasDetalleSerializer(detalle).data
-                        })
-    
-    @action(detail=True, methods=['patch'], url_path='detalles/(?P<detalle_id>[^/.]+)')
-    def modificar_detalle(self, request, pk=None, detalle_id=None):
-        pedido_venta = self.get_object()
-        
-        if pedido_venta.estado != 'pendiente':
-            return Response({"error": "No se pueden modificar detalles de un Pedido de Venta que no esté en estado 'Pendiente'."}, status=400)
-        
-        try:
-            detalle = pedido_venta.detalles.get(id=detalle_id)
-        except PedidosVentasDetalle.DoesNotExist:
-            return Response({"error": "Detalle no encontrado para este pedido de venta."}, status=404)
-        
-        serializer = PedidosVentasDetalleSerializer(detalle, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        
-        nuevo_subtotal = calcular_subtotal(pedido_venta.detalles.all())
-        pedido_venta.subtotal = nuevo_subtotal
-        pedido_venta.save()
-        
-        return Response({"status": "Detalle modificado correctamente.",
-                         "nuevo_subtotal": str(nuevo_subtotal),
-                         "detalle": PedidosVentasDetalleSerializer(detalle).data
-                        })
-    
-# Ventas 
+# Ventas
 
 class VentasViewSet(viewsets.ModelViewSet):
     serializer_class = VentasSerializer
     queryset = Ventas.objects.all()
 
-    @action(detail=False, methods=['post'], serializer_class=ReordenarEntregasSerializer)
-    def reordenar_entregas(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        fecha_entrega = serializer.validated_data['fecha_entrega']
-        ventas_ids = serializer.validated_data['ventas_ids']
-
-        ventas = list(
-            Ventas.objects.filter(
-                id__in=ventas_ids,
-            ).filter(
-                Q(fecha_entrega=fecha_entrega) | Q(fecha_reprogramada=fecha_entrega)
-            )
-        )
-
-        if len(ventas) != len(ventas_ids):
-            return Response(
-                {"error": "La lista contiene ventas invalidas para la fecha seleccionada."},
-                status=400,
-            )
-
-        ventas_by_id = {venta.id: venta for venta in ventas}
-        for posicion, venta_id in enumerate(ventas_ids, start=1):
-            venta = ventas_by_id[venta_id]
-            venta.orden_entrega = posicion
-            venta.save(update_fields=['orden_entrega'])
-
-        return Response({"status": "Orden de entrega actualizado correctamente."})
-    
-    # Cambio de estado de entrega validada en domain/validaciones_ventas.py
     @action(detail=True, methods=['post'], serializer_class=CambiarEstadoVentaSerializer)
-    def cambiar_estado_entrega(self, request, pk=None):
+    def cambiar_estado(self, request, pk=None):
         venta = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        estado_entrega = serializer.validated_data['estado_entrega']
+        nuevo_estado = serializer.validated_data['estado_venta']
 
-        # Validación de flujo
-        validar_cambio_estado_entrega(venta, estado_entrega)
-
-        # ❌ NO se permite cancelar la venta desde entrega
-        if estado_entrega == 'cancelada':
-            return Response(
-                {"error": "La cancelación de la venta debe realizarse desde la acción de cancelar venta."},
-                status=400
-            )
-
-        # Actualizar estado de entrega
-        venta.estado_entrega = estado_entrega
-        venta.save(update_fields=['estado_entrega'])
-
-        # Automatización: completar pedido de venta
-        completar_pedido_venta_al_entregar(venta, estado_entrega)
-
-        # Automatización CLAVE: recalcular estado de la venta
-        venta.estado_venta = recalcular_estado_venta(venta)
-        venta.save(update_fields=['estado_venta'])
-
-        return Response({"status": "Estado de entrega actualizado correctamente."})
-
-    
-    # Reprogramar fecha de entrega
-    @action(detail=True, methods=['post'], serializer_class=NuevaFechaEntregaSerializer)
-    def reprogramar_entrega(self, request, pk=None):
-        venta = self.get_object()
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        nueva_fecha = serializer.validated_data['nueva_fecha']
-
-        venta.fecha_reprogramada = nueva_fecha
-        venta.estado_entrega = 'reprogramada'
-        venta.save(update_fields=['fecha_reprogramada', 'estado_entrega'])
-        
-        return Response({"status": "Fecha de entrega reprogramada correctamente."})
-
-    @action(detail=True, methods=['post'], serializer_class=CancelarVentaSerializer)
-    def cancelar_venta(self, request, pk=None):
-        venta = self.get_object()
-        nuevo_estado = 'cancelada'
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        #validar con cambio de estado de venta
         try:
             validar_cambio_estado_venta(venta, nuevo_estado)
         except ValidationError as e:
             return Response({"error": str(e)}, status=400)
-        
-        motivo_cancelacion = serializer.validated_data['motivo_cancelacion']      
-        
-        venta.estado_venta = 'cancelada'
+
+        venta.estado_venta = nuevo_estado
+        venta.save(update_fields=['estado_venta'])
+
+        return Response({"status": "Estado actualizado correctamente."})
+
+    @action(detail=True, methods=['post'], serializer_class=CancelarVentaSerializer)
+    def cancelar_venta(self, request, pk=None):
+        venta = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            validar_cambio_estado_venta(venta, 'cancelada')
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=400)
+
+        motivo_cancelacion = serializer.validated_data['motivo_cancelacion']
+
         venta.motivo_cancelacion = motivo_cancelacion
         venta.fecha_cancelacion = timezone.now().date()
-        venta.save(update_fields=['estado_venta', 'motivo_cancelacion', 'fecha_cancelacion'])
-        
-        # Automatización: cancelar venta
+        venta.save(update_fields=['motivo_cancelacion', 'fecha_cancelacion'])
+
         cancelar_venta_domain(venta)
-        
+
         return Response({"status": "Venta cancelada correctamente."})
 
-    # Filtrado por estado de entrega o busqueda por cliente
     def get_queryset(self):
         queryset = super().get_queryset()
-        estado_entrega = self.request.query_params.get('estado_entrega', None)
-        cliente = self.request.query_params.get('cliente', None)
-        cliente_id = self.request.query_params.get('cliente_id', None)
-        fecha_entrega = self.request.query_params.get('fecha_entrega', None)
-        fecha_desde = self.request.query_params.get('fecha_desde', None)
-        fecha_hasta = self.request.query_params.get('fecha_hasta', None)
-        
-        if estado_entrega:
-            queryset = queryset.filter(estado_entrega=estado_entrega)
+        params = self.request.query_params
+
+        estado_venta = params.get('estado_venta', None)
+        cliente = params.get('cliente', None)
+        cliente_id = params.get('cliente_id', None)
+        fecha_desde = params.get('fecha_desde', None)
+        fecha_hasta = params.get('fecha_hasta', None)
+
+        if estado_venta:
+            queryset = queryset.filter(estado_venta=estado_venta)
         if cliente:
             queryset = queryset.filter(cliente__nombre__icontains=cliente)
         if cliente_id:
             queryset = queryset.filter(cliente_id=cliente_id)
-        if fecha_entrega:
-            queryset = queryset.filter(
-                Q(fecha_entrega=fecha_entrega) | Q(fecha_reprogramada=fecha_entrega)
-            )
         if fecha_desde:
             queryset = queryset.filter(fecha_venta__gte=fecha_desde)
         if fecha_hasta:
             queryset = queryset.filter(fecha_venta__lte=fecha_hasta)
-            
-        return queryset.order_by(
-            F('fecha_entrega').asc(nulls_last=True),
-            F('orden_entrega').asc(nulls_last=True),
-            'id',
-        )
-    
+
+        return queryset.order_by('-fecha_venta', 'id')
+
 class VentasDetalleViewSet(ReadOnlyModelViewSet):
     serializer_class = VentasDetalleSerializer
     queryset = VentasDetalle.objects.all()
-    
-    # Filtros potentes y estándar
+
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['producto', 'venta']
     ordering_fields = ['cantidad', 'precio_unitario', 'id']
-    ordering = ['id']  # default
+    ordering = ['id']
+
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Filtro por nombre de producto (opcional, agregar a tu versión)
         producto = self.request.query_params.get('producto', None)
         if producto:
             queryset = queryset.filter(producto__nombre__icontains=producto)
-        # Filtro por ID de venta (más potente que el anterior)
         venta_id = self.request.query_params.get('venta_id', None)
         if venta_id:
             queryset = queryset.filter(venta_id=venta_id)
@@ -477,7 +260,7 @@ class VentasDetalleViewSet(ReadOnlyModelViewSet):
 class CobrosViewSet(viewsets.ModelViewSet):
     serializer_class = CobrosSerializer
     queryset = Cobros.objects.all()
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         params = self.request.query_params
@@ -486,164 +269,24 @@ class CobrosViewSet(viewsets.ModelViewSet):
         fecha = params.get('fecha_cobro', None)
         fecha_desde = params.get('fecha_desde', None)
         fecha_hasta = params.get('fecha_hasta', None)
-        
+
         if cliente:
             queryset = queryset.filter(cliente__nombre__icontains=cliente)
         if cliente_id:
             queryset = queryset.filter(cliente_id=cliente_id)
-        
         if fecha:
             queryset = queryset.filter(fecha_cobro=fecha)
         if fecha_desde:
             queryset = queryset.filter(fecha_cobro__gte=fecha_desde)
         if fecha_hasta:
             queryset = queryset.filter(fecha_cobro__lte=fecha_hasta)
-        
+
         return queryset
-    
+
 class CobrosDetalleViewSet(ReadOnlyModelViewSet):
     serializer_class = CobrosDetalleSerializer
     queryset = CobrosDetalle.objects.all()
 
-# Pedidos de Compras
-    
-class PedidosComprasViewSet(viewsets.ModelViewSet):
-    serializer_class = PedidosComprasSerializer
-    queryset = PedidosCompras.objects.all()
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        estado = self.request.query_params.get('estado')
-        proveedor = self.request.query_params.get('proveedor')
-
-        if estado:
-            queryset = queryset.filter(estado=estado)
-        if proveedor:
-            queryset = queryset.filter(proveedor__nombre__icontains=proveedor)
-
-        return queryset
-
-    @action(detail=False, methods=['post'], serializer_class=GenerarPedidoCompraAutomaticoSerializer)
-    def generar_automatico(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        fecha_entrega = serializer.validated_data['fecha_entrega']
-
-        try:
-            pedido, creado, ventas_count = generar_pedido_compra_automatico(fecha_entrega)
-        except ValueError as exc:
-            return Response({"error": str(exc)}, status=400)
-
-        data = {
-            "status": "Pedido de compra generado correctamente.",
-            "pedido_compra_id": pedido.id,
-            "fecha_entrega": fecha_entrega,
-            "ventas_consolidadas": ventas_count,
-            "detalles": PedidosComprasDetalleSerializer(pedido.detalles.all(), many=True).data,
-            "subtotal": str(pedido.subtotal),
-        }
-        return Response(data, status=201 if creado else 200)
-
-    @action(detail=True, methods=['delete'], url_path='detalles/(?P<detalle_id>[^/.]+)')
-    def eliminar_detalle(self, request, pk=None, detalle_id=None):
-        pedido = self.get_object()
-
-        try:
-            validar_modificacion_pedido_compra(pedido)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=400)
-
-        try:
-            detalle = pedido.detalles.get(id=detalle_id)
-        except PedidosComprasDetalle.DoesNotExist:
-            return Response({"error": "Detalle no encontrado."}, status=404)
-
-        detalle.delete()
-
-        pedido.subtotal = calcular_subtotal(pedido.detalles.all())
-        pedido.save(update_fields=['subtotal'])
-
-        return Response({
-            "status": "Detalle eliminado correctamente.",
-            "nuevo_subtotal": str(pedido.subtotal),
-            "detalles_restantes": PedidosComprasDetalleSerializer(
-                pedido.detalles.all(), many=True
-            ).data
-        })
-
-    @action(detail=True, methods=['post'], url_path='detalles')
-    def agregar_detalle(self, request, pk=None):
-        pedido = self.get_object()
-
-        try:
-            validar_modificacion_pedido_compra(pedido)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=400)
-
-        serializer = PedidosComprasDetalleSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        detalle = serializer.save(pedido_compra=pedido)
-
-        pedido.subtotal = calcular_subtotal(pedido.detalles.all())
-        pedido.save(update_fields=['subtotal'])
-
-        return Response({
-            "status": "Detalle agregado correctamente.",
-            "nuevo_subtotal": str(pedido.subtotal),
-            "detalle": PedidosComprasDetalleSerializer(detalle).data
-        })
-
-    @action(detail=True, methods=['patch'], url_path='detalles/(?P<detalle_id>[^/.]+)')
-    def modificar_detalle(self, request, pk=None, detalle_id=None):
-        pedido = self.get_object()
-
-        try:
-            validar_modificacion_pedido_compra(pedido)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=400)
-
-        try:
-            detalle = pedido.detalles.get(id=detalle_id)
-        except PedidosComprasDetalle.DoesNotExist:
-            return Response({"error": "Detalle no encontrado."}, status=404)
-
-        serializer = PedidosComprasDetalleSerializer(
-            detalle, data=request.data, partial=True
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        pedido.subtotal = calcular_subtotal(pedido.detalles.all())
-        pedido.save(update_fields=['subtotal'])
-
-        return Response({
-            "status": "Detalle modificado correctamente.",
-            "nuevo_subtotal": str(pedido.subtotal),
-            "detalle": PedidosComprasDetalleSerializer(detalle).data
-        })
-
-class PedidosComprasDetalleViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = PedidosComprasDetalleSerializer
-    queryset = PedidosComprasDetalle.objects.all()
-
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ['producto', 'pedido_compra']
-    ordering_fields = ['cantidad', 'precio_unitario', 'id']
-    ordering = ['id']
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        producto = self.request.query_params.get('producto')
-        pedido_id = self.request.query_params.get('pedido_id')
-
-        if producto:
-            queryset = queryset.filter(producto__nombre__icontains=producto)
-        if pedido_id:
-            queryset = queryset.filter(pedido_compra_id=pedido_id)
-
-        return queryset
-    
 # Compras
 
 class ComprasViewSet(viewsets.ModelViewSet):
@@ -660,13 +303,10 @@ class ComprasViewSet(viewsets.ModelViewSet):
 
         if proveedor:
             queryset = queryset.filter(proveedor__nombre__icontains=proveedor)
-
         if estado_compra:
             queryset = queryset.filter(estado_compra=estado_compra)
-
         if fecha:
             queryset = queryset.filter(fecha_compra=fecha)
-
         if estado_pago:
             queryset = queryset.filter(estado_pago=estado_pago)
 
@@ -676,14 +316,12 @@ class ComprasViewSet(viewsets.ModelViewSet):
     def cambiar_estado_compra(self, request, pk=None):
         compra = self.get_object()
 
-        # Validar estado nuevo
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         nuevo_estado = serializer.validated_data["estado_compra"]
 
         validar_cambio_estado_compra(compra, nuevo_estado)
 
-        # CASO CANCELACIÓN
         if nuevo_estado == "cancelada":
             cancel_ser = CancelarCompraSerializer(data=request.data)
             cancel_ser.is_valid(raise_exception=True)
@@ -698,13 +336,12 @@ class ComprasViewSet(viewsets.ModelViewSet):
 
             return Response({"status": "Compra cancelada correctamente."})
 
-        # CASO RECIBIDA
         compra.estado_compra = nuevo_estado
         compra.estado_pago = recalcular_estado_pago(compra)
         compra.save()
 
-        return Response({"status": "Estado de compra actualizado correctamente."})  
-    
+        return Response({"status": "Estado de compra actualizado correctamente."})
+
 class ComprasDetalleViewSet(ReadOnlyModelViewSet):
     serializer_class = ComprasDetalleSerializer
     queryset = ComprasDetalle.objects.all()
@@ -714,25 +351,25 @@ class ComprasDetalleViewSet(ReadOnlyModelViewSet):
 class PagosViewSet(viewsets.ModelViewSet):
     serializer_class = PagosSerializer
     queryset = Pagos.objects.all()
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         proveedor = self.request.query_params.get('proveedor', None)
         fecha = self.request.query_params.get('fecha_pago', None)
-        
+
         if proveedor:
             queryset = queryset.filter(proveedor__nombre__icontains=proveedor)
         if fecha:
             queryset = queryset.filter(fecha_pago=fecha)
-            
+
         return queryset
-    
+
 class PagosDetalleViewSet(viewsets.ModelViewSet):
     serializer_class = PagosDetalleSerializer
     queryset = PagosDetalle.objects.all()
 
 # Notas de Credito
-    
+
 class NotasCreditoViewSet(viewsets.ModelViewSet):
     serializer_class = NotasCreditoSerializer
     queryset = NotasCredito.objects.all().select_related(
@@ -741,27 +378,24 @@ class NotasCreditoViewSet(viewsets.ModelViewSet):
         'detalles',
         'aplicaciones'
         )
-        
+
     def get_queryset(self):
         qs = super().get_queryset()
         params = self.request.query_params
-        
+
         contacto_id = params.get('contacto')
         tipo = params.get('tipo')
-        
+
         if contacto_id:
             qs = qs.filter(contacto__id=contacto_id)
         if tipo:
             qs = qs.filter(tipo=tipo)
-            
+
         return qs
-    
+
     def destroy(self, request, *args, **kwargs):
-        return Response(
-            {"error": "No se permite eliminar notas de crédito"},
-            status=405
-        )
-        
+        return Response({"error": "No se permite eliminar notas de crédito"}, status=405)
+
     def update(self, request, *args, **kwargs):
         return Response({"error": "No se permite modificar notas de crédito"}, status=405)
 
@@ -818,13 +452,19 @@ class DashboardView(APIView):
         if cliente:
             cobros_qs = cobros_qs.filter(cliente_id=cliente)
         if medio_pago:
-            cobros_qs = cobros_qs.filter(medio_pago=medio_pago)
+            cobros_qs = cobros_qs.filter(
+                Q(medios_pago__medio_pago=medio_pago) |
+                (Q(medios_pago__isnull=True) & Q(medio_pago=medio_pago))
+            ).distinct()
 
         pagos_qs = apply_date_range(Pagos.objects.all(), "fecha_pago")
         if proveedor:
             pagos_qs = pagos_qs.filter(proveedor_id=proveedor)
         if medio_pago:
-            pagos_qs = pagos_qs.filter(medio_pago=medio_pago)
+            pagos_qs = pagos_qs.filter(
+                Q(medios_pago__medio_pago=medio_pago) |
+                (Q(medios_pago__isnull=True) & Q(medio_pago=medio_pago))
+            ).distinct()
 
         ventas_validas = ventas_qs.exclude(estado_venta="cancelada")
         compras_validas = compras_qs.exclude(estado_compra="cancelada")
@@ -866,13 +506,16 @@ class DashboardView(APIView):
         egresos_caja = pagos_qs.aggregate(total=Sum("monto")).get("total") or Decimal("0")
         flujo_neto = ingresos_caja - egresos_caja
 
+        cobros_medios_qs = CobrosMedioPago.objects.filter(cobro__in=cobros_qs)
+        cobros_legado_qs = cobros_qs.filter(medios_pago__isnull=True)
+
         ingresos_efectivo = (
-            cobros_qs.filter(medio_pago="efectivo").aggregate(total=Sum("monto")).get("total")
-            or Decimal("0")
+            cobros_medios_qs.filter(medio_pago="efectivo").aggregate(total=Coalesce(Sum("monto"), Decimal("0"))).get("total")
+            + (cobros_legado_qs.filter(medio_pago="efectivo").aggregate(total=Sum("monto")).get("total") or Decimal("0"))
         )
         ingresos_transferencia = (
-            cobros_qs.filter(medio_pago="transferencia").aggregate(total=Sum("monto")).get("total")
-            or Decimal("0")
+            cobros_medios_qs.filter(medio_pago="transferencia").aggregate(total=Coalesce(Sum("monto"), Decimal("0"))).get("total")
+            + (cobros_legado_qs.filter(medio_pago="transferencia").aggregate(total=Sum("monto")).get("total") or Decimal("0"))
         )
 
         deuda_clientes = (

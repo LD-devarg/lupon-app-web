@@ -15,7 +15,7 @@
     "@emotion/styled": "^11.14.1",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
-    "@mui/material": "^7.3.9",
+    "@mui/material": "^7.3.11",
     "leaflet": "^1.9.4",
     "motion": "^12.23.24",
     "react": "^19.2.0",

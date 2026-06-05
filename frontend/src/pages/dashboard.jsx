@@ -17,6 +17,7 @@ import { getClientes } from "../services/api/clientes";
 import { getContactos } from "../services/api/contactos";
 import { getDashboard } from "../services/api/dashboard";
 import Logo from "../assets/logo-lupon.png";
+import Sidebar from "../components/ui/Sidebar";
 
 const EMPTY_FILTERS = {
   fechaDesde: "",
@@ -151,13 +152,13 @@ function DetailCard({ icon: Icon, title, value, lines, footer, tone = "slate" })
       )}
     >
       <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
-            <p className="mt-2 text-[1.15rem] font-semibold text-slate-900 lg:text-[1.3rem]">{value}</p>
-          </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Icon className="h-4 w-4" />
-          </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
+          <p className="mt-2 text-[1.15rem] font-semibold text-slate-900 lg:text-[1.3rem]">{value}</p>
+        </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
+          <Icon className="h-4 w-4" />
+        </div>
         <div className="">
           <p>
             {lines.map((line) => (
@@ -509,6 +510,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
 
         {error ? (
           <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm text-rose-700">

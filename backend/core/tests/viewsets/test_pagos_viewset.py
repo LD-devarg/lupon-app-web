@@ -8,6 +8,7 @@ from core.models import (
     Productos,
     Compras,
     Pagos,
+    PagosMedioPago,
 )
 
 pytestmark = pytest.mark.django_db
@@ -172,3 +173,46 @@ def test_no_pagar_compra_cancelada(api_client, user, proveedor, producto):
     )
 
     assert res.status_code == 400
+
+
+def test_crear_pago_manual_sin_detalles(api_client, user, proveedor):
+    res = api_client.post(
+        "/api/pagos/",
+        {
+            "proveedor": proveedor.id,
+            "medio_pago": "efectivo",
+            "monto": "100.00",
+            "detalles": [],
+        },
+        format="json",
+    )
+
+    assert res.status_code == 201
+    pago = Pagos.objects.get(id=res.data["id"])
+    proveedor.refresh_from_db()
+
+    assert pago.saldo_disponible == Decimal("100.00")
+    assert proveedor.saldo_contacto == Decimal("-100.00")
+
+
+def test_crear_pago_con_multiples_medios(api_client, user, proveedor):
+    res = api_client.post(
+        "/api/pagos/",
+        {
+            "proveedor": proveedor.id,
+            "monto": "250.00",
+            "medios_pago": [
+                {"medio_pago": "efectivo", "monto": "100.00"},
+                {"medio_pago": "transferencia", "monto": "150.00"},
+            ],
+            "detalles": [],
+        },
+        format="json",
+    )
+
+    assert res.status_code == 201, res.data
+    pago = Pagos.objects.get(id=res.data["id"])
+
+    assert pago.medio_pago == ""
+    assert PagosMedioPago.objects.filter(pago=pago).count() == 2
+    assert res.data["medio_pago_resumen"] == "multiple"

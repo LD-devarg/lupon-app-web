@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Button from "../components/ui/Button";
 import SearchableSelect from "../components/ui/SearchableSelect";
 import { getContactos } from "../services/api/contactos";
 import { getProductos } from "../services/api/productos";
-import { createPedidoCompra } from "../services/api/pedidosCompras";
+import { getPedidoCompra, getPedidosCompras } from "../services/api/pedidosCompras";
+import { createCompra } from "../services/api/compras";
 
-export default function PedidosCompras() {
+export default function Compras1() {
+  const [searchParams] = useSearchParams();
+  const pedidoParam = searchParams.get("pedido");
+
   const [proveedorId, setProveedorId] = useState("");
   const [proveedores, setProveedores] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [pedidosValidos, setPedidosValidos] = useState([]);
+  const [pedidoCompraId, setPedidoCompraId] = useState(pedidoParam || "");
   const [observaciones, setObservaciones] = useState("");
+  const [numeroDocumento, setNumeroDocumento] = useState("");
+  const [extra, setExtra] = useState("");
+  const [descuento, setDescuento] = useState("");
   const [loadError, setLoadError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitOk, setSubmitOk] = useState("");
@@ -19,18 +29,29 @@ export default function PedidosCompras() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [proveedoresData, productosData] = await Promise.all([
+        const [proveedoresData, productosData, pedidosData] = await Promise.all([
           getContactos({ tipo: "proveedor" }),
           getProductos(),
+          getPedidosCompras(),
         ]);
         setProveedores(proveedoresData || []);
         setProductos(productosData || []);
+        setPedidosValidos(
+          (pedidosData || []).filter((pedido) => pedido.estado === "validado")
+        );
       } catch (error) {
         setLoadError(error?.message || "No se pudieron cargar los datos.");
       }
     };
     loadData();
   }, []);
+
+  const productosById = useMemo(() => {
+    return productos.reduce((acc, current) => {
+      acc[String(current.id)] = current;
+      return acc;
+    }, {});
+  }, [productos]);
 
   const productoOptions = useMemo(
     () =>
@@ -40,6 +61,57 @@ export default function PedidosCompras() {
       })),
     [productos]
   );
+
+  const hydrateFromPedido = (pedido) => {
+    setPedidoCompraId(String(pedido.id));
+    setProveedorId(String(pedido.proveedor));
+    setObservaciones(pedido.observaciones || "");
+    const detallesFormateados = (pedido.detalles || []).map((detalle) => ({
+      producto: String(detalle.producto),
+      cantidad: detalle.cantidad,
+      precioUnitario: detalle.precio_unitario,
+    }));
+    setItems(detallesFormateados);
+  };
+
+  useEffect(() => {
+    if (!pedidoParam) return;
+    const loadPedido = async () => {
+      try {
+        const pedido = await getPedidoCompra(pedidoParam);
+        if (pedido?.estado !== "validado") {
+          setLoadError("El pedido seleccionado no esta validado.");
+          return;
+        }
+        hydrateFromPedido(pedido);
+      } catch (error) {
+        setLoadError(error?.message || "No se pudo cargar el pedido.");
+      }
+    };
+    loadPedido();
+  }, [pedidoParam]);
+
+  const handlePedidoChange = async (nextId) => {
+    setSubmitError("");
+    setSubmitOk("");
+    if (!nextId) {
+      setPedidoCompraId("");
+      setProveedorId("");
+      setObservaciones("");
+      setItems([]);
+      return;
+    }
+    try {
+      const pedido = await getPedidoCompra(nextId);
+      if (pedido?.estado !== "validado") {
+        setSubmitError("Solo se pueden usar pedidos validados.");
+        return;
+      }
+      hydrateFromPedido(pedido);
+    } catch (error) {
+      setSubmitError(error?.message || "No se pudo cargar el pedido.");
+    }
+  };
 
   const handleAddItem = () => {
     setItems((prev) => [
@@ -61,9 +133,7 @@ export default function PedidosCompras() {
   };
 
   const handleProductoChange = (index, productoId) => {
-    const productoData = productos.find(
-      (producto) => String(producto.id) === String(productoId)
-    );
+    const productoData = productosById[String(productoId)];
     const precioDefault = productoData?.precio_compra
       ? String(productoData.precio_compra)
       : "";
@@ -111,18 +181,34 @@ export default function PedidosCompras() {
       setIsSubmitting(true);
       const payload = {
         proveedor: Number(proveedorId),
-        estado: "pendiente",
         detalles,
       };
+      if (pedidoCompraId) {
+        payload.pedido_compra = Number(pedidoCompraId);
+      }
       if (observaciones.trim()) {
         payload.observaciones = observaciones.trim();
       }
-      const response = await createPedidoCompra(payload);
-      setSubmitOk(`Pedido #${response?.id || ""} guardado.`);
+      if (numeroDocumento.trim()) {
+        payload.numero_documento = numeroDocumento.trim();
+      }
+      if (extra !== "") {
+        payload.extra = extra;
+      }
+      if (descuento !== "") {
+        payload.descuento = descuento;
+      }
+      const response = await createCompra(payload);
+      setSubmitOk(`Compra #${response?.id || ""} guardada.`);
       setItems([]);
       setObservaciones("");
+      setNumeroDocumento("");
+      setExtra("");
+      setDescuento("");
+      setPedidoCompraId("");
+      setProveedorId("");
     } catch (error) {
-      setSubmitError(error?.message || "No se pudo guardar el pedido.");
+      setSubmitError(error?.message || "No se pudo guardar la compra.");
     } finally {
       setIsSubmitting(false);
     }
@@ -130,9 +216,9 @@ export default function PedidosCompras() {
 
   return (
     <div className="mx-auto bg-neutral-300 mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Nuevo pedido de compra</h2>
+      <h2 className="text-xl font-semibold text-gray-800">Nueva compra</h2>
       <p className="mt-1 text-sm text-gray-600">
-        Pantalla para cargar pedidos a proveedores.
+        Carga de compras a proveedores.
       </p>
 
       <form
@@ -151,6 +237,26 @@ export default function PedidosCompras() {
 
         <div>
           <label className="text-sm font-medium text-gray-700">
+            Pedido de compra (validado)
+          </label>
+          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
+            <select
+              className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+              value={pedidoCompraId}
+              onChange={(event) => handlePedidoChange(event.target.value)}
+            >
+              <option value="">Sin pedido asociado</option>
+              {pedidosValidos.map((pedido) => (
+                <option key={pedido.id} value={pedido.id}>
+                  Pedido #{pedido.id}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700">
             Proveedor
           </label>
           <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
@@ -158,6 +264,7 @@ export default function PedidosCompras() {
               className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
               value={proveedorId}
               onChange={(event) => setProveedorId(event.target.value)}
+              disabled={Boolean(pedidoCompraId)}
             >
               <option value="">Seleccionar proveedor</option>
               {proveedores.map((proveedor) => (
@@ -172,7 +279,7 @@ export default function PedidosCompras() {
         <div className="space-y-4">
           {items.length === 0 ? (
             <p className="text-sm text-gray-600">
-              Agrega productos para completar el pedido.
+              Agrega productos para completar la compra.
             </p>
           ) : null}
           {items.map((item, index) => (
@@ -234,6 +341,39 @@ export default function PedidosCompras() {
           ))}
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Extra</label>
+            <input
+              type="number"
+              className="mt-1 w-full rounded-lg p-2 text-sm input-shadow bg-neutral-300"
+              value={extra}
+              onChange={(event) => setExtra(event.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Descuento</label>
+            <input
+              type="number"
+              className="mt-1 w-full rounded-lg p-2 text-sm input-shadow bg-neutral-300"
+              value={descuento}
+              onChange={(event) => setDescuento(event.target.value)}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700">
+            Numero documento
+          </label>
+          <input
+            type="text"
+            className="mt-1 w-full rounded-lg p-2 text-sm input-shadow bg-neutral-300"
+            value={numeroDocumento}
+            onChange={(event) => setNumeroDocumento(event.target.value)}
+          />
+        </div>
+
         <div>
           <label className="text-sm font-medium text-gray-700">
             Observaciones
@@ -261,7 +401,7 @@ export default function PedidosCompras() {
           className="w-full rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Guardando..." : "Guardar pedido"}
+          {isSubmitting ? "Guardando..." : "Guardar compra"}
         </Button>
       </form>
     </div>

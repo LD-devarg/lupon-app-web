@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Button from "../components/ui/Button";
+import SearchableSelect from "../components/ui/SearchableSelect";
 import { getClientes } from "../services/api/clientes";
 import { getVentas } from "../services/api/ventas";
 import { addDetallesCobro, getCobros, getCobro } from "../services/api/cobros";
@@ -93,6 +94,22 @@ export default function CobrosListado() {
   const capitalize = (value) => {
     if (!value) return "";
     return value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const ventasDisponiblesClienteOptions = useMemo(
+    () =>
+      ventasDisponiblesCliente.map((venta) => ({
+        value: String(venta.id),
+        label: `Venta #${venta.id} - ${venta.fecha_venta} - ${formatArs(venta.saldo_pendiente)}`,
+      })),
+    [ventasDisponiblesCliente]
+  );
+
+  const getMediosLabel = (cobro) => {
+    if (Array.isArray(cobro.medios_pago) && cobro.medios_pago.length > 0) {
+      return cobro.medios_pago.map((item) => capitalize(item.medio_pago)).join(" + ");
+    }
+    return capitalize(cobro.medio_pago_resumen || cobro.medio_pago);
   };
 
   const filteredCobros = useMemo(() => {
@@ -275,7 +292,7 @@ export default function CobrosListado() {
                 Cobro #{cobro.id}
               </span>
               <span className="text-xs rounded-full bg-neutral-300 px-2 py-1 text-gray-700">
-                {capitalize(cobro.medio_pago)}
+                {getMediosLabel(cobro)}
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-700">
@@ -361,22 +378,14 @@ export default function CobrosListado() {
                   <div className="mt-2 space-y-2">
                     <div className="flex flex-col">
                       <label className="text-sm font-medium text-gray-700">Venta</label>
-                      <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-200">
-                        <select
-                          className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+                      <div className="mt-1">
+                        <SearchableSelect
+                          options={ventasDisponiblesClienteOptions}
                           value={detalle.venta}
-                          onChange={(event) =>
-                            handleDetalleChange(index, "venta", event.target.value)
-                          }
-                        >
-                          <option value="">Seleccionar venta</option>
-                          {ventasDisponiblesCliente.map((venta) => (
-                            <option key={venta.id} value={venta.id}>
-                              Venta #{venta.id} - {venta.fecha_venta} -{" "}
-                              {clientesById[String(venta.cliente)]?.nombre || venta.cliente}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(value) => handleDetalleChange(index, "venta", value)}
+                          placeholder="Buscar venta"
+                          noOptionsText="Sin ventas pendientes"
+                        />
                       </div>
                       {detalle.venta ? (
                         <p className="mt-1 text-xs text-gray-600">
