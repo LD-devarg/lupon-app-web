@@ -1,5 +1,4 @@
 import ButtonDef from "../ui/Button";
-import { useState } from "react";
 
 export default function ModalNuevaCompra({ isOpen, onClose }) {
     if (!isOpen) return null;

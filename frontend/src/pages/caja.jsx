@@ -1,20 +1,25 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import Button from "../components/ui/Button";
-import Cobros from "./cobros.jsx";
-import CobrosListado from "./cobrosListado.jsx";
-import Pagos from "./pagos.jsx";
-import PagosListado from "./pagosListado.jsx";
+import Button from "../components/ui/Button.jsx";
+import MovimientoForm from "./MovimientoForm.jsx";
+import CobrosListado from "./CobrosListado.jsx";
+import PagosListado from "./PagosListado.jsx";
+import { useHeaderTitle } from "../layouts/DesktopLayout.jsx";
 
 const DEFAULT_TIPO = "cobro";
 const DEFAULT_VISTA = "nuevo";
 
 export default function Caja() {
+  const { setTitle } = useHeaderTitle();
   const [searchParams, setSearchParams] = useSearchParams();
   const tipoParam = searchParams.get("tipo");
   const vistaParam = searchParams.get("vista");
   const tipo = tipoParam === "pago" ? "pago" : DEFAULT_TIPO;
   const vista = vistaParam === "listado" ? "listado" : DEFAULT_VISTA;
+
+  useEffect(() => {
+    setTitle("Caja");
+  }, [setTitle]);
 
   useEffect(() => {
     if (!tipoParam || !vistaParam) {
@@ -44,50 +49,37 @@ export default function Caja() {
 
   const getToggleClass = (isActive) =>
     [
-      "relative overflow-hidden rounded-[1rem] px-4 py-2.5 text-sm font-semibold transition",
+      "relative overflow-hidden rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 w-full",
       isActive
-        ? "bg-[linear-gradient(135deg,#2563eb,#3b82f6)] text-white shadow-[0_20px_40px_-22px_rgba(37,99,235,0.95)]"
-        : "bg-white/70 text-slate-700 shadow-[0_14px_32px_-28px_rgba(15,23,42,0.7)] hover:text-slate-900",
+        ? "bg-[#CAED4E] text-black shadow-md shadow-[#CAED4E]/10"
+        : "text-stone-400 hover:text-white bg-transparent",
     ].join(" ");
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-2 text-center">
-      <div className="rounded-[2rem] border border-white/70 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(241,245,249,0.95)_52%,_rgba(226,232,240,0.92))] px-4 py-5 shadow-[0_35px_100px_-50px_rgba(15,23,42,0.5)] md:px-6 md:py-6">
-        <div className="mx-auto max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-sky-600">Caja</p>
+    <div className="w-full px-2 text-left text-white">
+      <div className="w-full flex flex-row gap-4">
+        <div className="w-1/2 bg-stone-950/60 p-1.5">
+          <select value={tipo} onChange={(event) => handleSetTipo(event.target.value)} className="w-full md:w-[10rem] border border-stone-700 rounded-xl px-4 py-2 bg-stone-950/60">
+            <option value="cobro" >Cobros</option>
+            <option value="pago" >Pagos</option>
+          </select>
         </div>
-
-        <div className="mx-auto mt-2 max-w-4xl rounded-[1.5rem] border border-white/80 bg-white/65 p-2.5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.7)]">
-          <div className="grid gap-2 md:grid-cols-2">
-            <div className="rounded-[1.2rem] bg-slate-100/90 p-1.5">
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" className={getToggleClass(tipo === "cobro")} onClick={() => handleSetTipo("cobro")}>
-                  Cobros
-                </Button>
-                <Button type="button" className={getToggleClass(tipo === "pago")} onClick={() => handleSetTipo("pago")}>
-                  Pagos
-                </Button>
-              </div>
-            </div>
-            <div className="rounded-[1.2rem] bg-slate-100/90 p-1.5">
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" className={getToggleClass(vista === "nuevo")} onClick={() => handleSetVista("nuevo")}>
-                  Nuevo
-                </Button>
-                <Button type="button" className={getToggleClass(vista === "listado")} onClick={() => handleSetVista("listado")}>
-                  Listado
-                </Button>
-              </div>
-            </div>
+        <div className="bg-stone-950/60 p-1.5 flex flex-1 justify-end items-end">
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" className={getToggleClass(vista === "nuevo")} onClick={() => handleSetVista("nuevo")}>
+              Nuevo
+            </Button>
+            <Button type="button" className={getToggleClass(vista === "listado")} onClick={() => handleSetVista("listado")}>
+              Listado
+            </Button>
           </div>
         </div>
+      </div>
 
-        <div className="mt-2 text-left">
-          {tipo === "cobro" && vista === "nuevo" ? <Cobros /> : null}
-          {tipo === "cobro" && vista === "listado" ? <CobrosListado /> : null}
-          {tipo === "pago" && vista === "nuevo" ? <Pagos /> : null}
-          {tipo === "pago" && vista === "listado" ? <PagosListado /> : null}
-        </div>
+      <div className="mt-2 w-full text-left">
+        {vista === "nuevo" ? <MovimientoForm tipo={tipo} /> : null}
+        {tipo === "cobro" && vista === "listado" ? <CobrosListado /> : null}
+        {tipo === "pago" && vista === "listado" ? <PagosListado /> : null}
       </div>
     </div>
   );

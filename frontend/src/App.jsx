@@ -1,23 +1,21 @@
 import { Navigate, Route, Routes, Outlet, useLocation } from "react-router-dom";
 import DesktopLayout from "./layouts/DesktopLayout.jsx";
 import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx";
-import Ventas from "./pages/ventas.jsx";
-import Cobros from "./pages/cobros.jsx";
-import Productos from "./pages/productos.jsx";
-import Contactos from "./pages/contactos.jsx";
-import CobrosListado from "./pages/cobrosListado.jsx";
-import Logistica from "./pages/logistica.jsx";
-import Compras from "./pages/compras.jsx";
+import Ventas from "./pages/Ventas.jsx";
+import MovimientoForm from "./pages/MovimientoForm.jsx";
+import Productos from "./pages/Productos.jsx";
+import Contactos from "./pages/Contactos.jsx";
+import CobrosListado from "./pages/CobrosListado.jsx";
+import Logistica from "./pages/Logistica.jsx";
+import Compras from "./pages/Compras.jsx";
 import ComprasListado from "./pages/comprasListado.jsx";
-import Pagos from "./pages/pagos.jsx";
-import PagosListado from "./pages/pagosListado.jsx";
-import Caja from "./pages/caja.jsx";
-import NotasCredito from "./pages/notasCredito.jsx";
-import NotasCreditoListado from "./pages/notasCreditoListado.jsx";
-import Dashboard from "./pages/dashboard.jsx";
-import CuentaCorrienteClientes from "./pages/cuentaCorrienteClientes.jsx";
+import PagosListado from "./pages/PagosListado.jsx";
+import Caja from "./pages/Caja.jsx";
+import NotasCredito from "./pages/NotasCredito.jsx";
+import NotasCreditoListado from "./pages/NotasCreditoListado.jsx";
+import CuentaCorrienteClientes from "./pages/CuentaCorrienteClientes.jsx";
 import Home from "./pages/Home.jsx";
+import Configuraciones from "./pages/Configuraciones.jsx"
 
 function RequireAuth() {
   const location = useLocation();
@@ -35,23 +33,22 @@ function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           <Route element={<RequireAuth />}>
             <Route path="/home" element={<Home />} />
             <Route path="/ventas" element={<Ventas />} />
-            <Route path="/cobros" element={<Cobros />} />
+            <Route path="/cobros" element={<MovimientoForm tipo="cobro" />} />
             <Route path="/cobros/listado" element={<CobrosListado />} />
             <Route path="/productos" element={<Productos />} />
             <Route path="/contactos" element={<Contactos />} />
             <Route path="/logistica" element={<Logistica />} />
             <Route path="/compras" element={<Compras />} />
             <Route path="/compras/listado" element={<ComprasListado />} />
-            <Route path="/pagos" element={<Pagos />} />
+            <Route path="/pagos" element={<MovimientoForm tipo="pago" />} />
             <Route path="/pagos/listado" element={<PagosListado />} />
             <Route path="/caja" element={<Caja />} />
             <Route path="/notas-credito" element={<NotasCredito />} />
             <Route path="/notas-credito/listado" element={<NotasCreditoListado />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/configuraciones" element={<Configuraciones />} />
             <Route path="/cuenta-corriente-clientes" element={<CuentaCorrienteClientes />} />
           </Route>
         </Routes>

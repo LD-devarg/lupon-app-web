@@ -4,11 +4,13 @@ import SearchableSelect from "../components/ui/SearchableSelect";
 import { getContactos } from "../services/api/contactos";
 import { getCompras } from "../services/api/compras";
 import { addDetallesPago, getPago, getPagos } from "../services/api/pagos";
+import { FunnelIcon } from "@heroicons/react/24/outline";
 
 export default function PagosListado() {
   const [proveedor, setProveedor] = useState("");
   const [fechaPago, setFechaPago] = useState("");
   const [useFiltro, setUseFiltro] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [pagos, setPagos] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [compras, setCompras] = useState([]);
@@ -221,96 +223,118 @@ export default function PagosListado() {
 
   return (
     <div className="mx-auto mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Pagos</h2>
-      <p className="mt-1 text-sm text-gray-600">
+      <h2 className="text-xl font-semibold text-white">Pagos</h2>
+      <p className="mt-1 text-sm text-stone-400">
         Listado de pagos y aplicacion de saldo disponible.
       </p>
 
-      <form
-        className="mt-4 grid grid-cols-3 gap-3 rounded-xl pedidos-shadow p-4 text-left"
-        onSubmit={handleBuscar}
-      >
-        <div className="flex flex-col col-span-2">
-          <label className="text-sm font-medium text-gray-700">Proveedor</label>
-          <input
-            type="text"
-            placeholder="Buscar por nombre"
-            className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={proveedor}
-            onChange={(event) => setProveedor(event.target.value)}
-          />
+      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+        <div></div>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-200 border ${
+              isFilterOpen || proveedor || fechaPago
+                ? "bg-[#CAED4E] text-black border-transparent shadow-md"
+                : "bg-stone-900 border-stone-800 text-stone-400 hover:text-white"
+            }`}
+          >
+            <FunnelIcon className="h-4 w-4 mr-1 inline-block" />
+            Filtros {(proveedor || fechaPago) && "(Activo)"}
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl px-4 py-2 text-xs font-semibold bg-stone-800 text-stone-200 hover:bg-stone-700 transition"
+            onClick={loadData}
+          >
+            Refrescar
+          </Button>
         </div>
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-700">Fecha</label>
-          <input
-            type="date"
-            className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={fechaPago}
-            onChange={(event) => setFechaPago(event.target.value)}
-          />
-        </div>
-        <Button
-          type="submit"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+      </div>
+
+      {isFilterOpen && (
+        <form
+          className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl border border-stone-850 bg-[#111111] p-5 shadow-lg items-end text-left"
+          onSubmit={handleBuscar}
         >
-          Filtrar
-        </Button>
-        <Button
-          type="button"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          onClick={handleLimpiar}
-        >
-          Limpiar
-        </Button>
-        <Button
-          type="button"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          onClick={loadData}
-        >
-          Refrescar
-        </Button>
-      </form>
+          <div className="flex flex-col md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Proveedor</label>
+            <input
+              type="text"
+              placeholder="Buscar por nombre"
+              className="mt-2 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-600 focus:border-stone-700 outline-none transition duration-200"
+              value={proveedor}
+              onChange={(event) => setProveedor(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Fecha</label>
+            <input
+              type="date"
+              className="mt-2 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2 text-sm text-white focus:border-stone-700 outline-none transition duration-200 [color-scheme:dark]"
+              value={fechaPago}
+              onChange={(event) => setFechaPago(event.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 md:col-span-3">
+            <Button
+              type="submit"
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-[#CAED4E] text-black hover:opacity-90 transition duration-200 flex-1 md:flex-none"
+            >
+              Filtrar
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-stone-850 text-stone-300 hover:bg-stone-800 border border-stone-800 transition duration-200 flex-1 md:flex-none"
+              onClick={handleLimpiar}
+            >
+              Limpiar filtros
+            </Button>
+          </div>
+        </form>
+      )}
 
       {error ? (
-        <p className="mt-3 text-sm text-red-600">{error}</p>
+        <p className="mt-3 text-sm text-rose-400">{error}</p>
       ) : null}
 
       <div className="mt-4 space-y-3">
         {isLoading ? (
-          <p className="text-sm text-gray-600">Cargando pagos...</p>
+          <p className="text-sm text-stone-500">Cargando pagos...</p>
         ) : null}
         {!isLoading && filteredPagos.length === 0 ? (
-          <p className="text-sm text-gray-600">No hay registros para mostrar.</p>
+          <p className="text-sm text-stone-500">No hay registros para mostrar.</p>
         ) : null}
         {filteredPagos.map((pago) => (
           <div
             key={pago.id}
-            className="neuro-shadow-div p-3 text-left"
+            className="rounded-xl border border-stone-800 bg-stone-900/40 p-4 text-left shadow-lg text-white hover:border-stone-700/60 transition duration-200"
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-800">
+              <span className="text-sm font-semibold text-white">
                 Pago #{pago.id}
               </span>
-              <span className="text-xs rounded-full bg-neutral-300 px-2 py-1 text-gray-700">
+              <span className="text-xs rounded-full bg-stone-800 border border-stone-700 px-2.5 py-0.5 text-stone-300 font-medium">
                 {getMediosLabel(pago)}
               </span>
             </div>
-            <p className="mt-1 text-sm text-gray-700">
-              Proveedor: {proveedoresById[String(pago.proveedor)]?.nombre || pago.proveedor}
+            <p className="mt-2 text-sm text-stone-300">
+              Proveedor: <span className="text-white font-medium">{proveedoresById[String(pago.proveedor)]?.nombre || pago.proveedor}</span>
             </p>
-            <p className="text-sm text-gray-700">
-              Fecha: {pago.fecha_pago}
+            <p className="text-sm text-stone-300">
+              Fecha: <span className="text-white font-medium">{pago.fecha_pago}</span>
             </p>
-            <p className="text-sm text-gray-700">
-              Monto: {formatArs(pago.monto)}
+            <p className="text-sm text-stone-300">
+              Monto: <span className="text-white font-semibold">{formatArs(pago.monto)}</span>
             </p>
-            <p className="text-sm text-gray-700">
-              Saldo disponible: {formatArs(pago.saldo_disponible)}
+            <p className="text-sm text-stone-300">
+              Saldo disponible: <span className="text-[#CAED4E] font-semibold">{formatArs(pago.saldo_disponible)}</span>
             </p>
             <div className="mt-3 flex gap-2">
               <Button
                 type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+                className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold text-stone-200 bg-stone-800 hover:bg-stone-700 border border-stone-700 transition disabled:opacity-40"
                 onClick={() => handleVer(pago.id)}
                 disabled={Number(pago.saldo_disponible || 0) <= 0}
               >
@@ -322,63 +346,63 @@ export default function PagosListado() {
       </div>
 
       {isModalOpen && selectedPago ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl bg-white p-4 text-left shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-stone-900 border border-stone-800 p-6 text-left shadow-2xl text-white">
             <Button
               type="button"
-              className="absolute right-3 top-3 rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+              className="absolute right-4 top-4 rounded-md p-1 text-stone-400 hover:text-white hover:bg-stone-800 transition"
               onClick={handleModalClose}
             >
-              X
+              ✕
             </Button>
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-lg font-bold text-white mb-1">
               Pago #{selectedPago.id}
             </h3>
-            <p className="text-sm text-gray-600">
-              Proveedor: {proveedoresById[String(selectedPago.proveedor)]?.nombre || selectedPago.proveedor}
+            <p className="text-sm text-stone-400">
+              Proveedor: <span className="text-stone-200 font-medium">{proveedoresById[String(selectedPago.proveedor)]?.nombre || selectedPago.proveedor}</span>
             </p>
-            <p className="text-sm text-gray-600">
-              Saldo disponible: {formatArs(selectedPago.saldo_disponible)}
+            <p className="text-sm text-stone-400 mt-0.5">
+              Saldo disponible: <span className="text-[#CAED4E] font-semibold">{formatArs(selectedPago.saldo_disponible)}</span>
             </p>
             {modalError ? (
-              <p className="mt-2 text-sm text-red-600">{modalError}</p>
+              <p className="mt-2 text-sm text-rose-400">{modalError}</p>
             ) : null}
             {modalOk ? (
-              <p className="mt-2 text-sm text-green-700">{modalOk}</p>
+              <p className="mt-2 text-sm text-emerald-400">{modalOk}</p>
             ) : null}
 
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-700">Aplicaciones</span>
+            <div className="mt-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-stone-850 pb-2">
+                <span className="text-sm font-semibold text-white">Aplicaciones</span>
                 <Button
                   type="button"
-                  className="rounded-lg px-3 py-1 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
+                  className="rounded-xl px-3 py-1.5 text-xs font-bold text-stone-200 bg-stone-800 hover:bg-stone-700 border border-stone-700 transition"
                   onClick={handleAddDetalle}
                 >
                   Agregar compra
                 </Button>
               </div>
               {detalles.length === 0 ? (
-                <p className="text-sm text-gray-600">Agrega compras para aplicar saldo.</p>
+                <p className="text-sm text-stone-500 py-2">Agrega compras para aplicar saldo.</p>
               ) : null}
               {detalles.map((detalle, index) => (
-                <div key={`detalle-${index}`} className="rounded-lg border border-gray-200 p-3">
+                <div key={`detalle-${index}`} className="rounded-xl border border-stone-850 bg-stone-950/40 p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
                       Compra {index + 1}
                     </span>
                     <Button
                       type="button"
-                      className="text-sm text-red-600 hover:text-red-700"
+                      className="text-xs font-semibold text-rose-400 hover:text-rose-300"
                       onClick={() => handleRemoveDetalle(index)}
                     >
                       Quitar
                     </Button>
                   </div>
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-3">
                     <div className="flex flex-col">
-                      <label className="text-sm font-medium text-gray-700">Compra</label>
-                      <div className="mt-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Compra</label>
+                      <div className="mt-1.5">
                         <SearchableSelect
                           options={comprasDisponiblesProveedorOptions}
                           value={detalle.compra}
@@ -388,16 +412,16 @@ export default function PagosListado() {
                         />
                       </div>
                       {detalle.compra ? (
-                        <p className="mt-1 text-xs text-gray-600">
-                          Saldo pendiente: {formatArs(comprasById[String(detalle.compra)]?.saldo_pendiente)}
+                        <p className="mt-1.5 text-xs text-stone-400">
+                          Saldo pendiente: <span className="text-white font-medium">{formatArs(comprasById[String(detalle.compra)]?.saldo_pendiente)}</span>
                         </p>
                       ) : null}
                     </div>
                     <div className="flex flex-col">
-                      <label className="text-sm font-medium text-gray-700">Monto aplicado</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Monto aplicado</label>
                       <input
                         type="number"
-                        className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                        className="mt-1.5 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:border-stone-700 outline-none transition duration-200"
                         value={detalle.montoAplicado}
                         onChange={(event) =>
                           handleDetalleChange(index, "montoAplicado", event.target.value)
@@ -408,15 +432,14 @@ export default function PagosListado() {
                 </div>
               ))}
             </div>
-            <div className="mt-3">
-              <p className="text-sm text-gray-700">
-                Total aplicado: {formatArs(totalAplicado)}
-              </p>
+            <div className="mt-5 pt-3 border-t border-stone-850 flex justify-between items-center">
+              <span className="text-sm font-semibold text-stone-400">Total aplicado:</span>
+              <span className="text-base font-bold text-white">{formatArs(totalAplicado)}</span>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-5 flex gap-2">
               <Button
                 type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
+                className="w-full rounded-xl px-4 py-3 text-sm font-bold bg-[#CAED4E] text-black hover:opacity-90 transition duration-200 disabled:opacity-60"
                 onClick={handleAplicarSaldo}
                 disabled={isSaving}
               >

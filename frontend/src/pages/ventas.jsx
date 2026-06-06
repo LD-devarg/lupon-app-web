@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusIcon, EyeIcon, XMarkIcon, CheckIcon, DocumentTextIcon, BanknotesIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, EyeIcon, XMarkIcon, CheckIcon, DocumentTextIcon, BanknotesIcon, FunnelIcon } from "@heroicons/react/24/outline";
 import ButtonDef from "../components/ui/Button";
 import { getVentas, cambiarEstadoVenta, cancelarVenta } from "../services/api/ventas";
 import { API_BASE } from "../services/api/base";
@@ -63,6 +63,7 @@ export default function Ventas() {
     const [openModal, setOpenModal] = useState(false);
     const [selected, setSelected] = useState(null);
     const [estadoFilter, setEstadoFilter] = useState("");
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [actuando, setActuando] = useState(false);
     const [cancelModal, setCancelModal] = useState(false);
     const [cancelMotivo, setCancelMotivo] = useState("");
@@ -81,6 +82,7 @@ export default function Ventas() {
         }
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { cargar(); }, [estadoFilter]);
 
     const patchVenta = (updated) => {
@@ -129,19 +131,54 @@ export default function Ventas() {
     return (
         <div className="space-y-4">
             {/* Barra acciones */}
-            <div className="flex items-center justify-between gap-2">
-                <select
-                    className="text-sm rounded-lg border border-stone-800 bg-stone-900/60 text-stone-300 px-3 py-1.5 focus:outline-none focus:border-stone-600"
-                    value={estadoFilter}
-                    onChange={e => setEstadoFilter(e.target.value)}
-                >
-                    <option value="">Todos los estados</option>
-                    {Object.entries(ESTADO_LABEL).map(([v, l]) => (
-                        <option key={v} value={v}>{l}</option>
-                    ))}
-                </select>
-                <ButtonDef leftIcon={PlusIcon} text="Nueva Venta" variant="secondary" size="sm" onClick={() => setOpenModal(true)} />
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div></div>
+                <div className="flex items-center gap-2">
+                    <ButtonDef
+                        type="button"
+                        onClick={() => setIsFilterOpen(!isFilterOpen)}
+                        leftIcon={FunnelIcon}
+                        text={estadoFilter ? "Filtros (Activo)" : "Filtros"}
+                        variant="secondary"
+                        size="sm"
+                        className={`rounded-lg transition-all duration-200 ${
+                            isFilterOpen || estadoFilter ? "bg-[#CAED4E] text-black border-transparent shadow-md" : ""
+                        }`}
+                    />
+                    <ButtonDef leftIcon={PlusIcon} text="Nueva Venta" variant="secondary" size="sm" onClick={() => setOpenModal(true)} />
+                </div>
             </div>
+
+            {/* Toggleable Filters Panel */}
+            {isFilterOpen && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl border border-stone-800 bg-[#111111] p-4 text-left">
+                    <div className="flex flex-col">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">Estado</label>
+                        <select
+                            className="rounded-lg border border-stone-800 bg-stone-950/60 p-2 text-sm text-white focus:outline-none focus:border-stone-700 outline-none transition duration-200 capitalize"
+                            value={estadoFilter}
+                            onChange={e => setEstadoFilter(e.target.value)}
+                        >
+                            <option value="">Todos los estados</option>
+                            {Object.entries(ESTADO_LABEL).map(([v, l]) => (
+                                <option key={v} value={v}>{l}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {estadoFilter && (
+                        <div className="flex items-end">
+                            <ButtonDef
+                                type="button"
+                                text="Limpiar filtros"
+                                variant="secondary"
+                                size="sm"
+                                className="rounded-lg bg-stone-850 hover:bg-stone-800 border border-stone-800 text-stone-300 w-full md:w-auto h-9"
+                                onClick={() => setEstadoFilter("")}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Tabla */}
             <div className="rounded-xl border border-stone-800 overflow-hidden shadow-lg">

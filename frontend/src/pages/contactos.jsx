@@ -6,16 +6,20 @@ import {
   getContactos,
   updateContacto,
 } from "../services/api/contactos";
+import { useHeaderTitle } from "../layouts/DesktopLayout";
+import { FunnelIcon } from "@heroicons/react/24/outline";
 
 const TIPOS = ["cliente", "proveedor"];
 const CATEGORIAS = ["Mayorista", "Mayorista Exclusivo", "Minorista"];
 const FORMAS_PAGO = ["contado", "cuenta corriente"];
 
 export default function Contactos() {
+  const { setTitle } = useHeaderTitle();
   const [contactos, setContactos] = useState([]);
   const [tipoFiltro, setTipoFiltro] = useState("");
   const [nombreFiltro, setNombreFiltro] = useState("");
   const [useFiltro, setUseFiltro] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
@@ -34,6 +38,10 @@ export default function Contactos() {
     numero: "",
     ciudad: "",
   });
+
+  useEffect(() => {
+    setTitle("Contactos");
+  }, [setTitle]);
 
   const loadContactos = async () => {
     setError("");
@@ -59,11 +67,25 @@ export default function Contactos() {
       const matchTipo = tipoFiltro ? contacto.tipo === tipoFiltro : true;
       const matchNombre = nombre
         ? contacto.nombre?.toLowerCase().includes(nombre) ||
-          contacto.nombre_fantasia?.toLowerCase().includes(nombre)
+        contacto.nombre_fantasia?.toLowerCase().includes(nombre)
         : true;
       return matchTipo && matchNombre;
     });
   }, [useFiltro, contactos, tipoFiltro, nombreFiltro]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [nombreFiltro, tipoFiltro, useFiltro]);
+
+  const totalPages = Math.ceil(filteredContactos.length / ITEMS_PER_PAGE) || 1;
+
+  const displayedContactos = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredContactos.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredContactos, currentPage]);
 
   const handleInputChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -179,21 +201,51 @@ export default function Contactos() {
   };
 
   return (
-    <div className="mx-auto mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Contactos</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        Gestion de clientes y proveedores.
-      </p>
+    <div className="mx-auto w-full max-w-[1400px] p-2 text-left text-white">
+      <div>
+        <p className="text-sm text-stone-400">
+          Gestión de clientes y proveedores, categorías tarifarias e historial de saldos.
+        </p>
+      </div>
 
-      <form
-        className="mt-4 grid grid-cols-3 gap-3 rounded-xl pedidos-shadow p-4 text-left"
-        onSubmit={handleBuscar}
-      >
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-700">Tipo</label>
-          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
+      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+        <div></div>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-200 border ${
+              isFilterOpen || tipoFiltro || nombreFiltro
+                ? "bg-[#CAED4E] text-black border-transparent shadow-md"
+                : "bg-stone-900 border-stone-800 text-stone-400 hover:text-white"
+            }`}
+          >
+            <FunnelIcon className="h-4 w-4 mr-1 inline-block" />
+            Filtros {(tipoFiltro || nombreFiltro) && "(Activo)"}
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl px-4 py-2 text-xs font-semibold bg-[#CAED4E] text-black hover:opacity-90 transition duration-200"
+            onClick={() => {
+              resetForm();
+              setIsModalOpen(true);
+            }}
+          >
+            Crear contacto
+          </Button>
+        </div>
+      </div>
+
+      {/* Filter panel */}
+      {isFilterOpen && (
+        <form
+          className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 rounded-2xl border border-stone-800 bg-[#111111] p-5 shadow-lg items-end"
+          onSubmit={handleBuscar}
+        >
+          <div className="flex flex-col col-span-1">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Tipo de contacto</label>
             <select
-              className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+              className="mt-2 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:border-stone-700 outline-none transition duration-200 capitalize"
               value={tipoFiltro}
               onChange={(event) => setTipoFiltro(event.target.value)}
             >
@@ -205,147 +257,207 @@ export default function Contactos() {
               ))}
             </select>
           </div>
-        </div>
-        <div className="flex flex-col col-span-2">
-          <label className="text-sm font-medium text-gray-700">Nombre</label>
-          <input
-            type="text"
-            placeholder="Buscar por nombre"
-            className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={nombreFiltro}
-            onChange={(event) => setNombreFiltro(event.target.value)}
-          />
-        </div>
-        <Button
-          type="submit"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-        >
-          Filtrar
-        </Button>
-        <Button
-          type="button"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          onClick={() => {
-            resetForm();
-            setIsModalOpen(true);
-          }}
-        >
-          Crear contacto
-        </Button>
-        <Button
-          type="button"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          onClick={handleLimpiar}
-        >
-          Limpiar filtros
-        </Button>
-      </form>
-
-      {error ? (
-        <p className="mt-3 text-sm text-red-600">{error}</p>
-      ) : null}
-
-      <div className="mt-4 space-y-3">
-        {isLoading ? (
-          <p className="text-sm text-gray-600">Cargando contactos...</p>
-        ) : null}
-        {!isLoading && filteredContactos.length === 0 ? (
-          <p className="text-sm text-gray-600">No hay registros para mostrar.</p>
-        ) : null}
-        {filteredContactos.map((contacto) => (
-          <div
-            key={contacto.id}
-            className="neuro-shadow-div p-3 text-left"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-800">
-                {contacto.nombre}
-              </span>
-              <span className="text-xs rounded-full bg-neutral-300 px-2 py-1 text-gray-700">
-                {formatTipo(contacto.tipo)}
-              </span>
-            </div>
-            <p className="text-sm text-gray-700">Email: {contacto.email}</p>
-            <p className="text-sm text-gray-700">Telefono: {contacto.telefono}</p>
-            <p className="text-sm text-gray-700">
-              Nombre de fantasia: {contacto.nombre_fantasia || ""}
-            </p>
-            <p className="text-sm text-gray-700">
-              Categoria: {contacto.categoria || "-"}
-            </p>
-            <p className="text-sm text-gray-700">
-              Saldo: {formatArs(contacto.saldo_contacto)}
-            </p>
-            <div className="mt-3 flex gap-2">
-              <Button
-                type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-                onClick={() => handleEdit(contacto)}
-              >
-                Editar
-              </Button>
-              <Button
-                type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-                onClick={() => handleDelete(contacto.id)}
-              >
-                Eliminar
-              </Button>
+          <div className="flex flex-col md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Buscar por nombre</label>
+            <div className="mt-2 flex gap-3 items-center w-full">
+              <input
+                type="text"
+                placeholder="Buscar por nombre o fantasía..."
+                className="flex-1 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-600 focus:border-stone-700 outline-none transition duration-200"
+                value={nombreFiltro}
+                onChange={(event) => setNombreFiltro(event.target.value)}
+              />
             </div>
           </div>
-        ))}
-      </div>
-      {isModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative w-full max-w-lg rounded-xl bg-white p-4 text-left shadow-xl">
+          <div className="flex flex-wrap md:col-span-3 gap-3">
+            <Button
+              type="submit"
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-[#CAED4E] text-black hover:opacity-90 transition duration-200 flex-1 md:flex-none"
+            >
+              Filtrar
+            </Button>
             <Button
               type="button"
-              className="absolute right-3 top-3 rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-800"
-              onClick={resetForm}
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-stone-850 text-stone-300 hover:bg-stone-800 border border-stone-800 transition duration-200 flex-1 md:flex-none"
+              onClick={handleLimpiar}
             >
-              X
+              Limpiar filtros
             </Button>
-            <h3 className="text-lg font-semibold text-gray-800">
-              {editingId ? "Editar contacto" : "Nuevo contacto"}
-            </h3>
-            <form className="mt-3 space-y-3" onSubmit={handleSubmit}>
-              {formError ? (
-                <p className="text-sm text-red-600">{formError}</p>
-              ) : null}
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-700">Tipo</label>
-                <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-200">
-                  <select
-                    className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-                    value={form.tipo}
-                    onChange={(event) => handleInputChange("tipo", event.target.value)}
+          </div>
+        </form>
+      )}
+
+      {error ? (
+        <div className="mt-4 rounded-xl border border-rose-900/30 bg-rose-950/20 px-4 py-3 text-xs text-rose-300">
+          {error}
+        </div>
+      ) : null}
+
+      {/* Grid of contact cards */}
+      <div className="mt-6">
+        {isLoading ? (
+          <div className="text-center py-12 text-stone-400">
+            <span className="inline-block w-6 h-6 border-2 border-[#CAED4E] border-t-transparent rounded-full animate-spin mr-2" />
+            Cargando contactos...
+          </div>
+        ) : null}
+        {!isLoading && filteredContactos.length === 0 ? (
+          <div className="text-center py-12 rounded-2xl border border-dashed border-stone-800 text-stone-500">
+            No se encontraron contactos en la base.
+          </div>
+        ) : null}
+
+        {!isLoading && filteredContactos.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {displayedContactos.map((contacto) => {
+                const isCliente = contacto.tipo === "cliente";
+                const saldo = Number(contacto.saldo_contacto || 0);
+                return (
+                  <div
+                    key={contacto.id}
+                    className="rounded-2xl border border-stone-800 bg-stone-900/10 p-5 shadow-xl hover:border-stone-700 transition duration-300 flex flex-col justify-between"
                   >
-                    <option value="">Seleccionar tipo</option>
-                    {TIPOS.map((tipo) => (
-                      <option key={tipo} value={tipo}>
-                        {tipo}
-                      </option>
-                    ))}
-                  </select>
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-base font-bold text-stone-200 truncate">
+                          {contacto.nombre}
+                        </span>
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${isCliente
+                          ? "bg-blue-950/40 text-blue-300 border border-blue-800/40"
+                          : "bg-amber-950/40 text-amber-300 border border-amber-800/40"
+                          }`}>
+                          {formatTipo(contacto.tipo)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 space-y-2 border-t border-stone-900 pt-3 text-xs text-stone-400">
+                        {contacto.nombre_fantasia && (
+                          <p><span className="text-stone-500">Fantasía:</span> <span className="text-stone-300 font-medium">{contacto.nombre_fantasia}</span></p>
+                        )}
+                        <p><span className="text-stone-500">Email:</span> <span className="text-stone-300 font-medium">{contacto.email || "-"}</span></p>
+                        <p><span className="text-stone-500">Teléfono:</span> <span className="text-stone-300 font-medium">{contacto.telefono || "-"}</span></p>
+                        <p><span className="text-stone-500">Categoría:</span> <span className="text-stone-300 font-medium">{contacto.categoria || "-"}</span></p>
+                      </div>
+                    </div>
+
+                    <div className="mt-0">
+                      <div className="flex items-center justify-between border-t border-stone-900 pt-3 text-sm font-semibold mb-4">
+                        <span className="text-stone-500">Saldo:</span>
+                        <span className={saldo < 0 ? "text-rose-400" : saldo > 0 ? "text-emerald-400" : "text-stone-300"}>
+                          {formatArs(contacto.saldo_contacto)}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          className="flex-1 rounded-xl bg-stone-800 hover:bg-stone-700 py-2.5 text-xs font-bold text-stone-200 transition duration-200"
+                          onClick={() => handleEdit(contacto)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          type="button"
+                          className="flex-1 rounded-xl bg-rose-950/40 text-rose-300 hover:bg-rose-900/40 border border-rose-800/40 py-2.5 text-xs font-bold transition duration-200"
+                          onClick={() => handleDelete(contacto.id)}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-2 py-3 border-t border-stone-900">
+                <div className="text-xs text-stone-500">
+                  Mostrando <span className="font-semibold text-stone-300">{Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredContactos.length)}</span> a <span className="font-semibold text-stone-300">{Math.min(currentPage * ITEMS_PER_PAGE, filteredContactos.length)}</span> de <span className="font-semibold text-stone-300">{filteredContactos.length}</span> contactos
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    className="rounded-xl bg-stone-800 text-stone-300 hover:bg-stone-700 px-4 py-2 text-xs font-semibold disabled:opacity-40 disabled:hover:bg-stone-800 transition"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <div className="flex items-center text-xs text-stone-400 font-bold px-3">
+                    Página {currentPage} de {totalPages}
+                  </div>
+                  <Button
+                    type="button"
+                    className="rounded-xl bg-stone-800 text-stone-300 hover:bg-stone-700 px-4 py-2 text-xs font-semibold disabled:opacity-40 disabled:hover:bg-stone-800 transition"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Siguiente
+                  </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+            )}
+          </>
+        )}
+      </div>
+
+      {/* CRUD modal */}
+      {isModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg rounded-2xl bg-stone-900 border border-stone-800 p-6 text-left shadow-2xl text-white overflow-y-auto max-h-[90vh]">
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-md p-1 text-stone-400 hover:text-white hover:bg-stone-800 transition"
+              onClick={resetForm}
+            >
+              ✕
+            </button>
+            <h3 className="text-lg font-bold text-white mb-4">
+              {editingId ? "Editar Contacto" : "Crear Nuevo Contacto"}
+            </h3>
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              {formError ? (
+                <div className="rounded-xl border border-rose-900/30 bg-rose-950/20 px-4 py-2.5 text-xs text-rose-300">
+                  {formError}
+                </div>
+              ) : null}
+
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Tipo</label>
+                <select
+                  className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:border-stone-700 outline-none transition duration-200 capitalize"
+                  value={form.tipo}
+                  onChange={(event) => handleInputChange("tipo", event.target.value)}
+                >
+                  <option value="">Seleccionar tipo</option>
+                  {TIPOS.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Nombre</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Nombre / Razón Social</label>
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    placeholder="Ej. Distribuidora S.A."
+                    className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
                     value={form.nombre}
                     onChange={(event) => handleInputChange("nombre", event.target.value)}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">
-                    Nombre de fantasia
-                  </label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Nombre Fantasía</label>
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    placeholder="Ej. Lupon"
+                    className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
                     value={form.nombre_fantasia}
                     onChange={(event) =>
                       handleInputChange("nombre_fantasia", event.target.value)
@@ -353,121 +465,125 @@ export default function Contactos() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Email</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Email</label>
                   <input
                     type="email"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    placeholder="ejemplo@mail.com"
+                    className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
                     value={form.email}
                     onChange={(event) => handleInputChange("email", event.target.value)}
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Telefono</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Teléfono</label>
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    placeholder="Ej. 11 1234 5678"
+                    className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
                     value={form.telefono}
                     onChange={(event) => handleInputChange("telefono", event.target.value)}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Categoria</label>
-                  <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-200">
-                    <select
-                      className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-                      value={form.categoria}
-                      onChange={(event) =>
-                        handleInputChange("categoria", event.target.value)
-                      }
-                    >
-                      <option value="">Sin categoria</option>
-                      {CATEGORIAS.map((categoria) => (
-                        <option key={categoria} value={categoria}>
-                          {categoria}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Categoría Tarifaria</label>
+                  <select
+                    className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:border-stone-700 outline-none transition duration-200"
+                    value={form.categoria}
+                    onChange={(event) =>
+                      handleInputChange("categoria", event.target.value)
+                    }
+                  >
+                    <option value="">Sin categoría</option>
+                    {CATEGORIAS.map((categoria) => (
+                      <option key={categoria} value={categoria}>
+                        {categoria}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Forma de Pago Def.</label>
+                  <select
+                    className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:border-stone-700 outline-none transition duration-200"
+                    value={form.forma_pago}
+                    onChange={(event) =>
+                      handleInputChange("forma_pago", event.target.value)
+                    }
+                  >
+                    <option value="">Sin definir</option>
+                    {FORMAS_PAGO.map((forma) => (
+                      <option key={forma} value={forma}>
+                        {forma}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Forma de pago</label>
-                  <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-200">
-                    <select
-                      className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-                      value={form.forma_pago}
-                      onChange={(event) =>
-                        handleInputChange("forma_pago", event.target.value)
-                      }
-                    >
-                      <option value="">Sin definir</option>
-                      {FORMAS_PAGO.map((forma) => (
-                        <option key={forma} value={forma}>
-                          {forma}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Dias CC</label>
-                  <input
-                    type="number"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
-                    value={form.dias_cc}
-                    onChange={(event) => handleInputChange("dias_cc", event.target.value)}
-                  />
-                </div>
+
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Límite de Cuenta Corriente (Días CC)</label>
+                <input
+                  type="number"
+                  placeholder="Ej. 15"
+                  className="mt-2 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
+                  value={form.dias_cc}
+                  onChange={(event) => handleInputChange("dias_cc", event.target.value)}
+                />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+
+              <div className="grid grid-cols-3 gap-2 border-t border-stone-900 pt-3">
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Calle</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Calle</label>
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    className="mt-1.5 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
                     value={form.calle}
                     onChange={(event) => handleInputChange("calle", event.target.value)}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Numero</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Número</label>
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    className="mt-1.5 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
                     value={form.numero}
                     onChange={(event) => handleInputChange("numero", event.target.value)}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-sm font-medium text-gray-700">Ciudad</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Ciudad</label>
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                    className="mt-1.5 rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-700 focus:border-stone-700 outline-none transition duration-200"
                     value={form.ciudad}
                     onChange={(event) => handleInputChange("ciudad", event.target.value)}
                   />
                 </div>
               </div>
-              <Button
-                type="submit"
-                className="w-full rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
-              >
-                {editingId ? "Actualizar contacto" : "Crear contacto"}
-              </Button>
-              {editingId ? (
+
+              <div className="flex flex-col gap-2 pt-4 border-t border-stone-900">
                 <Button
-                  type="button"
-                  className="w-full rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
-                  onClick={resetForm}
+                  type="submit"
+                  className="w-full rounded-xl px-4 py-3 text-sm font-semibold bg-[#CAED4E] text-black hover:opacity-90 transition duration-200"
                 >
-                  Cancelar edicion
+                  {editingId ? "Actualizar Contacto" : "Crear Contacto"}
                 </Button>
-              ) : null}
+                {editingId ? (
+                  <Button
+                    type="button"
+                    className="w-full rounded-xl bg-stone-800 text-stone-300 hover:bg-stone-700 px-4 py-3 text-sm font-semibold transition duration-200"
+                    onClick={resetForm}
+                  >
+                    Cancelar edición
+                  </Button>
+                ) : null}
+              </div>
             </form>
           </div>
         </div>
@@ -475,4 +591,3 @@ export default function Contactos() {
     </div>
   );
 }
-

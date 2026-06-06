@@ -4,6 +4,7 @@ import { getContactos } from "../services/api/contactos";
 import { getProductos } from "../services/api/productos";
 import { cambiarEstadoCompra, getCompra, getCompras } from "../services/api/compras";
 import { useNavigate } from "react-router-dom";
+import { FunnelIcon } from "@heroicons/react/24/outline";
 
 export default function ComprasListado() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function ComprasListado() {
   const [estadoPago, setEstadoPago] = useState("");
   const [fechaCompra, setFechaCompra] = useState("");
   const [useFiltro, setUseFiltro] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [compras, setCompras] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [productos, setProductos] = useState([]);
@@ -168,34 +170,59 @@ export default function ComprasListado() {
         Listado para buscar y gestionar compras.
       </p>
 
-      <form
-        className="mt-4 grid grid-cols-3 gap-3 rounded-xl pedidos-shadow p-4 text-left"
-        onSubmit={handleBuscar}
-      >
-        <div className="flex flex-col col-span-2">
-          <label className="text-sm font-medium text-gray-700">Proveedor</label>
-          <input
-            type="text"
-            placeholder="Buscar por nombre"
-            className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={proveedor}
-            onChange={(event) => setProveedor(event.target.value)}
-          />
+      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+        <div></div>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-200 border ${
+              isFilterOpen || proveedor || fechaCompra || estadoCompra || estadoPago
+                ? "bg-[#CAED4E] text-black border-transparent shadow-md"
+                : "bg-stone-900 border-stone-800 text-stone-400 hover:text-white"
+            }`}
+          >
+            <FunnelIcon className="h-4 w-4 mr-1 inline-block" />
+            Filtros {(proveedor || fechaCompra || estadoCompra || estadoPago) && "(Activo)"}
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl px-4 py-2 text-xs font-semibold bg-stone-800 text-stone-200 hover:bg-stone-700 transition"
+            onClick={loadData}
+          >
+            Refrescar
+          </Button>
         </div>
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-700">Fecha</label>
-          <input
-            type="date"
-            className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm input-shadow bg-neutral-300"
-            value={fechaCompra}
-            onChange={(event) => setFechaCompra(event.target.value)}
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-700">Estado compra</label>
-          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
+      </div>
+
+      {isFilterOpen && (
+        <form
+          className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl border border-stone-850 bg-[#111111] p-5 shadow-lg items-end text-left"
+          onSubmit={handleBuscar}
+        >
+          <div className="flex flex-col md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Proveedor</label>
+            <input
+              type="text"
+              placeholder="Buscar por nombre"
+              className="mt-2 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white placeholder-stone-600 focus:border-stone-700 outline-none transition duration-200"
+              value={proveedor}
+              onChange={(event) => setProveedor(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Fecha</label>
+            <input
+              type="date"
+              className="mt-2 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2 text-sm text-white focus:border-stone-700 outline-none transition duration-200 [color-scheme:dark]"
+              value={fechaCompra}
+              onChange={(event) => setFechaCompra(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Estado compra</label>
             <select
-              className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+              className="mt-2 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:border-stone-700 outline-none transition duration-200 capitalize"
               value={estadoCompra}
               onChange={(event) => setEstadoCompra(event.target.value)}
             >
@@ -205,12 +232,10 @@ export default function ComprasListado() {
               <option value="cancelada">Cancelada</option>
             </select>
           </div>
-        </div>
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-700">Estado pago</label>
-          <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-300">
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold uppercase tracking-wider text-stone-400">Estado pago</label>
             <select
-              className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
+              className="mt-2 w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:border-stone-700 outline-none transition duration-200 capitalize"
               value={estadoPago}
               onChange={(event) => setEstadoPago(event.target.value)}
             >
@@ -221,28 +246,23 @@ export default function ComprasListado() {
               <option value="cancelado">Cancelado</option>
             </select>
           </div>
-        </div>
-        <Button
-          type="submit"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-        >
-          Filtrar
-        </Button>
-        <Button
-          type="button"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          onClick={handleLimpiar}
-        >
-          Limpiar
-        </Button>
-        <Button
-          type="button"
-          className="w-full rounded-xl px-3 col-span-1 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
-          onClick={loadData}
-        >
-          Refrescar
-        </Button>
-      </form>
+          <div className="flex gap-2 md:col-span-3">
+            <Button
+              type="submit"
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-[#CAED4E] text-black hover:opacity-90 transition duration-200 flex-1 md:flex-none"
+            >
+              Filtrar
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-stone-855 text-stone-300 hover:bg-stone-800 border border-stone-800 transition duration-200 flex-1 md:flex-none"
+              onClick={handleLimpiar}
+            >
+              Limpiar filtros
+            </Button>
+          </div>
+        </form>
+      )}
 
       {error ? (
         <p className="mt-3 text-sm text-red-600">{error}</p>

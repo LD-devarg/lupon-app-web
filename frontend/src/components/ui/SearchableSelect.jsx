@@ -24,6 +24,7 @@ export default function SearchableSelect({
   selectClassName = "",
   noOptionsText = "Sin resultados",
   size = "md",
+  darkMode = true,
 }) {
   const normalizedOptions = options.map(normalizeOption);
   const selectedOption =
@@ -35,32 +36,40 @@ export default function SearchableSelect({
     "& .MuiOutlinedInput-root": {
       minHeight: size === "sm" ? 40 : 44,
       borderRadius: "0.75rem",
-      backgroundColor: "#e5e7eb",
-      boxShadow:
-        "inset -4px -4px 10px rgba(255,255,255,1), inset 4px 4px 10px rgba(0,0,0,0.15)",
+      backgroundColor: darkMode ? "rgba(12, 10, 9, 0.6)" : "#e5e7eb",
+      boxShadow: darkMode
+        ? "none"
+        : "inset -4px -4px 10px rgba(255,255,255,1), inset 4px 4px 10px rgba(0,0,0,0.15)",
       "& fieldset": {
-        borderColor: "rgba(156, 163, 175, 0.8)",
+        borderColor: darkMode ? "#292524" : "rgba(156, 163, 175, 0.8)",
       },
       "&:hover fieldset": {
-        borderColor: "rgba(100, 116, 139, 0.95)",
+        borderColor: darkMode ? "#44403c" : "rgba(100, 116, 139, 0.95)",
       },
       "&.Mui-focused fieldset": {
-        borderColor: "#334155",
+        borderColor: darkMode ? "#78716c" : "#334155",
         borderWidth: 1,
       },
     },
     "& .MuiInputBase-input": {
       fontSize: "0.875rem",
-      color: "#1f2937",
+      color: darkMode ? "#ffffff" : "#1f2937",
       py: size === "sm" ? "8px" : "10px",
+      "&::placeholder": {
+        color: darkMode ? "#78716c" : "#64748b",
+        opacity: 1,
+      },
     },
     "& .MuiInputLabel-root": {
-      color: "#64748b",
+      color: darkMode ? "#78716c" : "#64748b",
       fontSize: "0.875rem",
     },
     "& .MuiSvgIcon-root": {
-      color: "#475569",
+      color: darkMode ? "#a8a29e" : "#475569",
     },
+    "&.Mui-disabled": {
+      opacity: 0.5,
+    }
   };
 
   return (
@@ -88,7 +97,29 @@ export default function SearchableSelect({
             sx: {
               borderRadius: "0.9rem",
               mt: 0.75,
-              boxShadow: "0 20px 45px -25px rgba(15,23,42,0.35)",
+              boxShadow: "0 20px 45px -25px rgba(0,0,0,0.5)",
+              backgroundColor: darkMode ? "#1c1917" : "#ffffff",
+              border: darkMode ? "1px solid #292524" : "none",
+              color: darkMode ? "#ffffff" : "inherit",
+              "& .MuiAutocomplete-noOptions": {
+                color: darkMode ? "#78716c" : "inherit",
+                fontSize: "0.875rem",
+              },
+              "& .MuiAutocomplete-option": {
+                fontSize: "0.875rem",
+                '&[aria-selected="true"]': {
+                  backgroundColor: darkMode ? "#292524" : "rgba(0, 0, 0, 0.08)",
+                },
+                '&[aria-selected="true"].Mui-focused': {
+                  backgroundColor: darkMode ? "#3e3835" : "rgba(0, 0, 0, 0.12)",
+                },
+                "&.Mui-focused": {
+                  backgroundColor: darkMode ? "#292524" : "rgba(0, 0, 0, 0.04)",
+                },
+                "&:hover": {
+                  backgroundColor: darkMode ? "#292524" : "rgba(0, 0, 0, 0.04)",
+                },
+              },
             },
           },
         }}
