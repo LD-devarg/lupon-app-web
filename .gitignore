@@ -34,3 +34,6 @@ yarn-error.log*
 # --- MISC ---
 *.bak
 *.tmp
+.pytest_cache/
+**/pytest-cache-files-*/
+pytest-cache-files-*/
