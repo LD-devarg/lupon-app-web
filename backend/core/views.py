@@ -222,6 +222,7 @@ class VentasViewSet(viewsets.ModelViewSet):
         cliente_id = params.get('cliente_id', None)
         fecha_desde = params.get('fecha_desde', None)
         fecha_hasta = params.get('fecha_hasta', None)
+        fecha_entrega = params.get('fecha_entrega', None)
 
         if estado_venta:
             queryset = queryset.filter(estado_venta=estado_venta)
@@ -233,6 +234,8 @@ class VentasViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(fecha_venta__gte=fecha_desde)
         if fecha_hasta:
             queryset = queryset.filter(fecha_venta__lte=fecha_hasta)
+        if fecha_entrega:
+            queryset = queryset.filter(fecha_entrega=fecha_entrega)
 
         return queryset.order_by('-fecha_venta', 'id')
 

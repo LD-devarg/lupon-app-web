@@ -7,7 +7,6 @@ import Productos from "./pages/Productos.jsx";
 import Contactos from "./pages/Contactos.jsx";
 import CobrosListado from "./pages/CobrosListado.jsx";
 import Logistica from "./pages/Logistica.jsx";
-import Compras from "./pages/Compras.jsx";
 import ComprasListado from "./pages/ComprasListado.jsx";
 import PagosListado from "./pages/PagosListado.jsx";
 import Caja from "./pages/Caja.jsx";
@@ -41,7 +40,7 @@ function App() {
             <Route path="/productos" element={<Productos />} />
             <Route path="/contactos" element={<Contactos />} />
             <Route path="/logistica" element={<Logistica />} />
-            <Route path="/compras" element={<Compras />} />
+            <Route path="/compras" element={<ComprasListado />} />
             <Route path="/compras/listado" element={<ComprasListado />} />
             <Route path="/pagos" element={<MovimientoForm tipo="pago" />} />
             <Route path="/pagos/listado" element={<PagosListado />} />

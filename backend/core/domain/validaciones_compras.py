@@ -5,7 +5,10 @@ def validar_compra(validated_data, detalles_data=None):
     detalles_data = detalles_data or []
 
     if not detalles_data:
-        raise ValidationError("La compra debe contener al menos un detalle.")
+        extra = validated_data.get("extra", 0)
+        if not extra or extra <= 0:
+            raise ValidationError("La compra debe contener al menos un detalle o un monto extra positivo (gasto).")
+        return True
 
     for d in detalles_data:
         if d.get("cantidad", 0) <= 0:

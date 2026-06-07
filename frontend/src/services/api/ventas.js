@@ -4,12 +4,13 @@ export function createVenta(payload) {
   return postJson("/ventas/", payload);
 }
 
-export function getVentas({ clienteId, estadoVenta, fechaDesde, fechaHasta } = {}) {
+export function getVentas({ clienteId, estadoVenta, fechaDesde, fechaHasta, fechaEntrega } = {}) {
   const params = new URLSearchParams();
   if (clienteId) params.set("cliente_id", String(clienteId));
   if (estadoVenta) params.set("estado_venta", estadoVenta);
   if (fechaDesde) params.set("fecha_desde", fechaDesde);
   if (fechaHasta) params.set("fecha_hasta", fechaHasta);
+  if (fechaEntrega) params.set("fecha_entrega", fechaEntrega);
   const query = params.toString();
   return getJson(`/ventas/${query ? `?${query}` : ""}`);
 }

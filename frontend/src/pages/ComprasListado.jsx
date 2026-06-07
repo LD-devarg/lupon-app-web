@@ -4,7 +4,8 @@ import { getContactos } from "../services/api/contactos";
 import { getProductos } from "../services/api/productos";
 import { cambiarEstadoCompra, getCompra, getCompras } from "../services/api/compras";
 import { useNavigate } from "react-router-dom";
-import { FunnelIcon } from "@heroicons/react/24/outline";
+import { FunnelIcon, PlusIcon } from "@heroicons/react/24/outline";
+import ModalNuevaCompra from "../components/layout/ModalNuevaCompra";
 
 export default function ComprasListado() {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ export default function ComprasListado() {
   const [productos, setProductos] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // View detail modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalOk, setModalOk] = useState("");
@@ -26,6 +29,9 @@ export default function ComprasListado() {
   const [selectedCompra, setSelectedCompra] = useState(null);
   const [modalEstado, setModalEstado] = useState("");
   const [modalMotivo, setModalMotivo] = useState("");
+
+  // Create modal state
+  const [isNuevaCompraOpen, setIsNuevaCompraOpen] = useState(false);
 
   const loadData = async () => {
     setError("");
@@ -51,7 +57,7 @@ export default function ComprasListado() {
   }, []);
 
   useEffect(() => {
-    if (isModalOpen) {
+    if (isModalOpen || isNuevaCompraOpen) {
       const previousOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       return () => {
@@ -59,7 +65,7 @@ export default function ComprasListado() {
       };
     }
     return undefined;
-  }, [isModalOpen]);
+  }, [isModalOpen, isNuevaCompraOpen]);
 
   const proveedoresById = useMemo(() => {
     return proveedores.reduce((acc, current) => {
@@ -165,14 +171,22 @@ export default function ComprasListado() {
 
   return (
     <div className="mx-auto mt-2 w-full max-w-lg lg:max-w-none p-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800">Compras</h2>
-      <p className="mt-1 text-sm text-gray-600">
+      <h2 className="text-xl font-semibold text-white">Compras</h2>
+      <p className="mt-1 text-sm text-stone-400">
         Listado para buscar y gestionar compras.
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
         <div></div>
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            className="rounded-xl px-4 py-2 text-xs font-semibold bg-[#CAED4E] text-black hover:opacity-90 transition shadow-md flex items-center gap-1"
+            onClick={() => setIsNuevaCompraOpen(true)}
+          >
+            <PlusIcon className="h-4 w-4" />
+            Nueva Compra
+          </Button>
           <Button
             type="button"
             onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -255,7 +269,7 @@ export default function ComprasListado() {
             </Button>
             <Button
               type="button"
-              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-stone-855 text-stone-300 hover:bg-stone-800 border border-stone-800 transition duration-200 flex-1 md:flex-none"
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-stone-850 text-stone-300 hover:bg-stone-800 border border-stone-800 transition duration-200 flex-1 md:flex-none"
               onClick={handleLimpiar}
             >
               Limpiar filtros
@@ -270,47 +284,56 @@ export default function ComprasListado() {
 
       <div className="mt-4 space-y-3">
         {isLoading ? (
-          <p className="text-sm text-gray-600">Cargando compras...</p>
+          <p className="text-sm text-stone-500">Cargando compras...</p>
         ) : null}
         {!isLoading && filteredCompras.length === 0 ? (
-          <p className="text-sm text-gray-600">No hay registros para mostrar.</p>
+          <p className="text-sm text-stone-500">No hay registros para mostrar.</p>
         ) : null}
         {filteredCompras.map((compra) => (
-          <div key={compra.id} className="neuro-shadow-div p-3 text-left">
+          <div
+            key={compra.id}
+            className="rounded-xl border border-stone-800 bg-stone-900/40 p-4 text-left shadow-lg text-white hover:border-stone-700/60 transition duration-200"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-800">
+              <span className="text-sm font-semibold text-white">
                 Compra #{compra.id}
               </span>
-              <span className="text-xs rounded-full bg-neutral-300 px-2 py-1 text-gray-700">
+              <span className={`text-xs rounded-full border px-2.5 py-0.5 font-medium capitalize ${
+                compra.estado_compra === "pendiente"
+                  ? "bg-yellow-900/40 text-yellow-300 border-yellow-800/60"
+                  : compra.estado_compra === "recibida"
+                  ? "bg-green-900/40 text-green-300 border-green-800/60"
+                  : "bg-red-900/30 text-red-300 border-red-800/60"
+              }`}>
                 {compra.estado_compra}
               </span>
             </div>
-            <p className="mt-1 text-sm text-gray-700">
-              Proveedor: {proveedoresById[String(compra.proveedor)]?.nombre || compra.proveedor}
+            <p className="mt-2 text-sm text-stone-300">
+              Proveedor: <span className="text-white font-medium">{proveedoresById[String(compra.proveedor)]?.nombre || compra.proveedor}</span>
             </p>
-            <p className="text-sm text-gray-700">
-              Fecha: {compra.fecha_compra}
+            <p className="text-sm text-stone-300">
+              Fecha: <span className="text-white font-medium">{compra.fecha_compra}</span>
             </p>
-            <p className="text-sm text-gray-700">
-              Total: {formatArs(compra.total)}
+            <p className="text-sm text-stone-300">
+              Total: <span className="text-white font-semibold">{formatArs(compra.total)}</span>
             </p>
-            <p className="text-sm text-gray-700">
-              Saldo: {formatArs(compra.saldo_pendiente)}
+            <p className="text-sm text-stone-300">
+              Saldo: <span className="text-[#CAED4E] font-semibold">{formatArs(compra.saldo_pendiente)}</span>
             </p>
-            <p className="text-sm text-gray-700">
-              Estado pago: {compra.estado_pago}
+            <p className="text-sm text-stone-300">
+              Estado pago: <span className="text-white font-medium capitalize">{compra.estado_pago}</span>
             </p>
             <div className="mt-3 flex gap-2">
               <Button
                 type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+                className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold text-stone-200 bg-stone-800 hover:bg-stone-700 border border-stone-700 transition"
                 onClick={() => handleVer(compra.id)}
               >
                 Ver
               </Button>
               <Button
                 type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-300"
+                className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold text-stone-200 bg-stone-800 hover:bg-stone-700 border border-stone-700 transition"
                 onClick={() => navigate(`/caja?tipo=pago&vista=nuevo&compra=${compra.id}`)}
               >
                 Generar pago
@@ -320,80 +343,79 @@ export default function ComprasListado() {
         ))}
       </div>
 
+      {/* Detail Modal */}
       {isModalOpen && selectedCompra ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-xl bg-white p-4 text-left shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-stone-900 border border-stone-800 p-6 text-left shadow-2xl text-white">
             <Button
               type="button"
-              className="absolute right-3 top-3 rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+              className="absolute right-4 top-4 rounded-md p-1 text-stone-400 hover:text-white hover:bg-stone-800 transition"
               onClick={handleModalClose}
             >
-              X
+              ✕
             </Button>
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-lg font-bold text-white mb-1">
               Compra #{selectedCompra.id}
             </h3>
-            <p className="text-sm text-gray-600">
-              Proveedor: {proveedoresById[String(selectedCompra.proveedor)]?.nombre || selectedCompra.proveedor}
+            <p className="text-sm text-stone-400">
+              Proveedor: <span className="text-stone-200 font-medium">{proveedoresById[String(selectedCompra.proveedor)]?.nombre || selectedCompra.proveedor}</span>
             </p>
-            <p className="text-sm text-gray-600">
-              Estado pago: {selectedCompra.estado_pago}
+            <p className="text-sm text-stone-400 mt-0.5">
+              Estado pago: <span className="text-white font-medium capitalize">{selectedCompra.estado_pago}</span>
             </p>
             {modalError ? (
-              <p className="mt-2 text-sm text-red-600">{modalError}</p>
+              <p className="mt-2 text-sm text-rose-400">{modalError}</p>
             ) : null}
             {modalOk ? (
-              <p className="mt-2 text-sm text-green-700">{modalOk}</p>
+              <p className="mt-2 text-sm text-emerald-400">{modalOk}</p>
             ) : null}
-            <div className="mt-3">
-              <label className="text-sm font-medium text-gray-700">Estado compra</label>
-              <div className="mt-1 rounded-lg border border-gray-300 p-2 text-sm input-wrap input-shadow bg-neutral-200">
-                <select
-                  className="w-full bg-transparent rounded-lg focus:outline-none capitalize"
-                  value={modalEstado}
-                  onChange={(event) => setModalEstado(event.target.value)}
-                >
-                  <option value="pendiente">Pendiente</option>
-                  <option value="recibida">Recibida</option>
-                  <option value="cancelada">Cancelada</option>
-                </select>
-              </div>
+            <div className="mt-4">
+              <label className="text-xs font-medium text-stone-400 block mb-1">Estado compra</label>
+              <select
+                className="w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:outline-none focus:border-stone-700 outline-none transition duration-200 capitalize"
+                value={modalEstado}
+                onChange={(event) => setModalEstado(event.target.value)}
+              >
+                <option value="pendiente">Pendiente</option>
+                <option value="recibida">Recibida</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
             </div>
             {modalEstado === "cancelada" ? (
               <div className="mt-3">
-                <label className="text-sm font-medium text-gray-700">Motivo</label>
+                <label className="text-xs font-medium text-stone-400 block mb-1">Motivo</label>
                 <textarea
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm input-shadow bg-neutral-200"
+                  className="w-full rounded-xl border border-stone-800 bg-stone-950/60 p-2.5 text-sm text-white focus:outline-none focus:border-stone-700 outline-none transition duration-200"
                   value={modalMotivo}
                   onChange={(event) => setModalMotivo(event.target.value)}
                 />
               </div>
             ) : null}
-            <div className="mt-4 space-y-3">
-              <span className="text-sm font-semibold text-gray-700">Detalles</span>
+            <div className="mt-5 space-y-3">
+              <span className="text-sm font-semibold text-white">Detalles</span>
               {selectedCompra.detalles && selectedCompra.detalles.length > 0 ? (
                 selectedCompra.detalles.map((detalle) => (
-                  <div key={detalle.id} className="rounded-lg border border-gray-200 p-3">
-                    <p className="text-sm text-gray-700">
-                      Producto: {productosById[String(detalle.producto)]?.nombre || detalle.producto}
+                  <div key={detalle.id} className="rounded-xl border border-stone-800 bg-stone-950/40 p-3.5 space-y-1">
+                    <p className="text-sm text-stone-300">
+                      Producto: <span className="text-white font-medium">{productosById[String(detalle.producto)]?.nombre || detalle.producto}</span>
                     </p>
-                    <p className="text-sm text-gray-700">
-                      Cantidad: {detalle.cantidad}
+                    <p className="text-sm text-stone-300">
+                      Cantidad: <span className="text-white font-medium">{detalle.cantidad}</span>
                     </p>
-                    <p className="text-sm text-gray-700">
-                      Precio unitario: {formatArs(detalle.precio_unitario)}
+                    <p className="text-sm text-stone-300">
+                      Precio unitario: <span className="text-white font-semibold">{formatArs(detalle.precio_unitario)}</span>
                     </p>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-gray-600">Sin detalles cargados.</p>
+                <p className="text-sm text-stone-500 italic">Sin detalles (Gasto general).</p>
               )}
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-6 flex gap-2">
               <Button
                 type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 neuro-shadow-button bg-neutral-200"
+                className="w-full rounded-xl px-4 py-3 text-sm font-bold bg-[#CAED4E] text-black hover:opacity-90 transition duration-200 disabled:opacity-60"
                 onClick={handleSave}
                 disabled={isSaving}
               >
@@ -403,8 +425,13 @@ export default function ComprasListado() {
           </div>
         </div>
       ) : null}
+
+      {/* Nueva Compra Modal */}
+      <ModalNuevaCompra
+        isOpen={isNuevaCompraOpen}
+        onClose={() => setIsNuevaCompraOpen(false)}
+        onCreated={loadData}
+      />
     </div>
   );
 }
-
-
