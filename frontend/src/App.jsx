@@ -8,7 +8,7 @@ import Contactos from "./pages/Contactos.jsx";
 import CobrosListado from "./pages/CobrosListado.jsx";
 import Logistica from "./pages/Logistica.jsx";
 import Compras from "./pages/Compras.jsx";
-import ComprasListado from "./pages/comprasListado.jsx";
+import ComprasListado from "./pages/ComprasListado.jsx";
 import PagosListado from "./pages/PagosListado.jsx";
 import Caja from "./pages/Caja.jsx";
 import NotasCredito from "./pages/NotasCredito.jsx";
